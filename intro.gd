@@ -17,7 +17,7 @@ func _ready() -> void:
 	
 	start_button.pressed.connect(_on_start_pressed)
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if not _transitioning:
 		# Subtle pulse for the button
 		var pulse = 0.95 + sin(Time.get_ticks_msec() * 0.005) * 0.05

@@ -40,6 +40,24 @@ var play_time_passed: float = 0.0
 var sway_phase: float = 0.0
 var _hey_played: bool = false
 
+# --- Camera Sway & Escalation Settings ---
+@export_group("Camera Sway & Escalation")
+@export var BASE_SWAY_SPEED: float = 1.5       # Starting oscillation speed (rad/s)
+@export var MAX_SWAY_SPEED: float = 3.5        # Final frantic oscillation speed (rad/s)
+@export var MAX_CAMERA_SWAY: float = 25.0      # Maximum horizontal yaw sway in degrees
+@export var MAX_CAMERA_ROLL: float = 12.0      # Maximum lateral roll tilt in degrees
+
+# --- Camera-Aligned Sliding Drift & Load Inertia Settings ---
+@export_group("Tilt & Load Inertia")
+@export var BASE_TILT_MAGNITUDE: float = 14.0  # Base acceleration constant for tilt pull (m/s^2)
+@export var KNIGHT_BASE_MASS: float = 1.0      # Mass multiplier on foot (without cart)
+@export var CART_EMPTY_MASS: float = 1.5       # Base mass multiplier when pushing empty cart
+@export var MASS_PER_ITEM: float = 0.25        # Additional mass multiplier per grocery item collected
+@export var BASE_FRICTION: float = 6.0         # Unified low-friction deceleration (m/s^2)
+@export var MAX_OPPOSING_DRIFT_RATIO: float = 0.75 # Maximum fraction of player speed that opposing slope drift can counteract
+
+var drift_velocity: Vector3 = Vector3.ZERO     # Accumulated lateral slope drift velocity
+
 var move_sfx_player: AudioStreamPlayer
 var attached_cart: RigidBody3D = null
 var _orig_parent: Node = null
@@ -156,6 +174,15 @@ func _detach_cart():
 		attached_cart.freeze = false
 	attached_cart = null
 
+func _get_cart_item_count() -> int:
+	var gm = get_node_or_null("/root/GameModeManager")
+	if gm == null or not ("shopping_list" in gm):
+		return 0
+	var count: int = 0
+	for key in gm.shopping_list:
+		count += gm.shopping_list[key].get("collected", 0)
+	return count
+
 func _physics_process(delta: float) -> void:
 	# Gravity
 	if not is_on_floor():
@@ -164,22 +191,27 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
 		velocity.y = JUMP_VELOCITY
 
-	# Movement
+	# Movement & Load calculation
+	var load_mult: float = KNIGHT_BASE_MASS
+	if attached_cart != null:
+		var items_count = _get_cart_item_count()
+		load_mult = CART_EMPTY_MASS + (float(items_count) * MASS_PER_ITEM)
+
 	var input_dir := Vector2.ZERO
 	if not is_sliding and not is_fatigued:
 		input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 		
 	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-	
 	var current_speed = SPRINT_SPEED if is_sprinting else SPEED
 	
 	if direction and not is_sliding and not is_fatigued:
-		velocity.x = direction.x * current_speed
-		velocity.z = direction.z * current_speed
+		var target_vel = direction * current_speed
 		
-		# Collision sound trigger with cooldown (moved to bottom after move_and_slide)
-
-
+		# Unified smooth acceleration (no rigid ground snapping)
+		var accel = 18.0
+		velocity.x = move_toward(velocity.x, target_vel.x, accel * delta)
+		velocity.z = move_toward(velocity.z, target_vel.z, accel * delta)
+		
 		# --- Fatigue Exertion ---
 		if attached_cart != null and is_sprinting:
 			push_time += delta
@@ -197,22 +229,23 @@ func _physics_process(delta: float) -> void:
 		if not is_fatigued:
 			push_time = 0.0
 			
-		# Handle fatigue recovery
+		# Handle fatigue recovery (input locked to 0, but downhill drift continues to pull)
 		if is_fatigued:
 			fatigue_timer -= delta
 			if fatigue_timer <= 0.0:
 				is_fatigued = false
 				
-		# --- Inertia Slide Logic ---
-		var friction = SPEED * 6.0 # Default snappy stop
+		# --- Unified Low-Friction Deceleration (Walking & Sprinting) ---
+		var friction = BASE_FRICTION # 6.0 m/s^2 matching the loose sprint threshold
+		if attached_cart != null:
+			friction = max(3.2, BASE_FRICTION / sqrt(load_mult))
 		
-		# If we were sprinting with a cart, slide a bit
+		# If we were sprinting with a cart, engage sliding state
 		if is_sprinting and attached_cart != null:
 			is_sliding = true
-			friction = 6.0 # Calculated friction for ~3m slide from 8.5m/s
 			
-		velocity.x = move_toward(velocity.x, 0, friction * delta)
-		velocity.z = move_toward(velocity.z, 0, friction * delta)
+		velocity.x = move_toward(velocity.x, 0.0, friction * delta)
+		velocity.z = move_toward(velocity.z, 0.0, friction * delta)
 		
 		# Reset sprint and slide only when nearly stopped + 0.5s delay
 		if velocity.length() < 0.2:
@@ -233,21 +266,96 @@ func _physics_process(delta: float) -> void:
 
 	# --- Wavy Floor Effect Update ---
 	var floor_container = get_parent().get_node_or_null("FLOOR")
-	if is_instance_valid(floor_container):
-		var intensity = clamp(play_time_passed / TOTAL_TIME, 0.0, 1.0) * 1.5
+	if is_instance_valid(floor_container) and game_started:
+		var raw_prog = clamp(play_time_passed / TOTAL_TIME, 0.0, 1.0)
+		var floor_intensity = lerp(0.35, 1.5, raw_prog)
 		for f in floor_container.get_children():
 			if f is CSGBox3D and f.material_override is ShaderMaterial:
-				f.material_override.set_shader_parameter("wave_intensity", intensity)
+				f.material_override.set_shader_parameter("wave_intensity", floor_intensity)
 				f.material_override.set_shader_parameter("time", play_time_passed)
 
-	# --- Drunken Camera Sway ---
+	# --- Drunken Camera Sway & Dynamic Roll (Phase Accumulated & 28% Baseline) ---
+	var active_roll_angle: float = 0.0
 	if is_instance_valid(camera):
-		var sway_speed = 2.0 # Slow, rhythmic sway
-		var max_sway = 30.0 # From your request
-		var sway_intensity = (play_time_passed / TOTAL_TIME) * max_sway
-		var sway_val = sin(play_time_passed * sway_speed) * sway_intensity
-		# -25.0 is the base Y rotation from your screenshot
-		camera.rotation_degrees.y = -25.0 + sway_val
+		# 1. Normalized Direct Scalar with 28% Active Baseline
+		var raw_progress: float = clamp(play_time_passed / TOTAL_TIME, 0.0, 1.0) if game_started else 0.0
+		var escalation_factor: float = lerp(0.28, 1.0, raw_progress) if game_started else 0.0
+		
+		# 2. Continuous Frequency Acceleration via Phase Accumulation
+		var current_sway_speed: float = lerp(BASE_SWAY_SPEED, MAX_SWAY_SPEED, escalation_factor)
+		sway_phase += current_sway_speed * delta
+		if sway_phase > TAU:
+			sway_phase = fmod(sway_phase, TAU)
+			
+		# 3. Continuous Amplitude & Re-centering Application
+		var base_yaw: float = lerp(-25.0, 0.0, raw_progress)
+		var current_sway_max: float = MAX_CAMERA_SWAY * escalation_factor
+		var current_roll_max: float = MAX_CAMERA_ROLL * escalation_factor
+		
+		camera.rotation_degrees.y = base_yaw + sin(sway_phase) * current_sway_max
+		active_roll_angle = cos(sway_phase) * current_roll_max
+		camera.rotation_degrees.z = active_roll_angle
+
+	# --- Camera-Aligned Sliding Drift & Load Inertia ---
+	if is_instance_valid(camera) and game_started and active_roll_angle != 0.0:
+		# 1. Downhill Vector Derivation (using load_mult calculated above)
+
+		# Extract camera horizontal right vector (flattened on Y = 0 and normalized)
+		var cam_basis = camera.global_transform.basis
+		var cam_right = Vector3(cam_basis.x.x, 0.0, cam_basis.x.z)
+		if cam_right.length_squared() > 0.0001:
+			cam_right = cam_right.normalized()
+		else:
+			cam_right = Vector3.RIGHT
+		
+		# When roll > 0 (camera rolls clockwise), the right side of the screen dips down.
+		# When roll < 0 (camera rolls counter-clockwise), the left side dips down.
+		# sin(deg_to_rad(active_roll_angle)) gives the downhill slope ratio toward the lower side
+		var slope_ratio: float = sin(deg_to_rad(active_roll_angle))
+		var downhill_vector: Vector3 = cam_right * slope_ratio
+		
+		# 3. Force Injection (Continuous Accumulation)
+		# Scale resulting vector by base tilt magnitude, cart load multiplier, and delta
+		var tilt_accel: Vector3 = downhill_vector * BASE_TILT_MAGNITUDE * load_mult
+		drift_velocity += tilt_accel * delta
+		
+		# Ground friction damping for drift so it settles predictably
+		var drift_friction: float = 4.5
+		drift_velocity = drift_velocity.move_toward(Vector3.ZERO, drift_friction * delta)
+		
+		# 4. Asymmetric Directional Vector Projection & Opposition Clamping
+		var effective_drift: Vector3 = drift_velocity
+		
+		# Check if the player has active directional input
+		if direction.length_squared() > 0.0001 and not is_fatigued:
+			var d_input: Vector3 = direction.normalized()
+			var d_downhill: Vector3 = downhill_vector.normalized() if downhill_vector.length_squared() > 0.0001 else Vector3.ZERO
+			var oppose_factor: float = d_input.dot(d_downhill)
+			
+			# When oppose_factor < 0.0, the player is pushing uphill / against the slope
+			if oppose_factor < 0.0 and d_downhill != Vector3.ZERO:
+				# Decompose drift_velocity into parallel (along d_input) and perpendicular components
+				var parallel_dot: float = drift_velocity.dot(d_input) # Negative value when opposing
+				var v_parallel: Vector3 = d_input * parallel_dot
+				var v_perp: Vector3 = drift_velocity - v_parallel
+				
+				# Maximum allowed opposing speed (e.g. 75% of active locomotive speed)
+				var max_opposing_speed: float = current_speed * MAX_OPPOSING_DRIFT_RATIO
+				
+				# Clamp opposing parallel component so player always maintains positive forward headway
+				if abs(parallel_dot) > max_opposing_speed:
+					v_parallel = -d_input * max_opposing_speed
+					
+				# Recombine clamped parallel component with untouched lateral/perpendicular drift
+				effective_drift = v_parallel + v_perp
+			# When oppose_factor >= 0.0 (downhill or parallel): no clamp, full boost retained!
+			
+		# Add directly to horizontal velocity prior to move_and_slide()
+		velocity.x += effective_drift.x
+		velocity.z += effective_drift.z
+	else:
+		# Decay drift when stopped or before game starts
+		drift_velocity = drift_velocity.move_toward(Vector3.ZERO, 5.0 * delta)
 
 	# --- Start Game Proximity Trigger ---
 	var gm = get_node_or_null("/root/GameModeManager")
