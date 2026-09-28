@@ -16,16 +16,16 @@ var last_press_times = {
 }
 var is_sprinting = false
 const DOUBLE_TAP_TIME = 0.3 # seconds
-var is_sliding = false
-var slide_timer = 0.0
 var target_zoom = 4.0 # Initial camera distance
 
-# --- Stamina System & 25% Sprint Recharge Gate ---
+# --- Stamina System & Tiered Recovery Matrix ---
 @export_group("Stamina System")
 @export var MAX_STAMINA: float = 100.0
-@export var STAMINA_DEPLETION_RATE: float = 28.57  # Units/s (exhausts in 3.5s)
-@export var STAMINA_RECOVERY_RATE: float = 19.05   # Units/s (1.5x slower, full refill in 5.25s)
-@export var SPRINT_RECHARGE_GATE: float = 25.0     # 25% minimum gate to sprint again after exhaustion
+const RATE_REST: float = 100.0 / 3.5      # ~28.57 units/sec (1.0x)
+const RATE_WALK: float = RATE_REST * 0.5   # ~14.28 units/sec (0.5x)
+const SPRINT_DRAIN_RATE: float = 100.0 / 3.5 # ~28.57 units/sec (exhausts in 3.5s)
+const DANGER_ZONE_THRESHOLD: float = 33.33   # 1/3 of the gauge
+const SPRINT_RECHARGE_GATE: float = 25.0     # 25% minimum gate to sprint again after exhaustion
 
 var stamina: float = 100.0
 var can_sprint: bool = true
@@ -174,6 +174,13 @@ func _ready():
 	gate_marker.size = Vector2(2, 18)
 	overhead_stamina_bar.add_child(gate_marker)
 
+	# 33.33% danger zone notch marker on overhead bar
+	var danger_marker = ColorRect.new()
+	danger_marker.color = Color(1.0, 0.45, 0.15, 0.9)
+	danger_marker.position = Vector2(46.66, 0) # 33.33% of 140 width
+	danger_marker.size = Vector2(2, 18)
+	overhead_stamina_bar.add_child(danger_marker)
+
 	overhead_stamina_sprite = Sprite3D.new()
 	overhead_stamina_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	overhead_stamina_sprite.texture = overhead_stamina_viewport.get_texture()
@@ -285,6 +292,64 @@ func _get_cart_item_count() -> int:
 		count += gm.shopping_list[key].get("collected", 0)
 	return count
 
+func trigger_fatigue_penalty() -> void:
+	stamina = 0.0
+	is_fatigued = true
+	fatigue_timer = 0.5
+	can_sprint = false
+	is_sprinting = false
+	if panting_sfx_player:
+		panting_sfx_player.pitch_scale = randf_range(0.82, 0.90)
+		panting_sfx_player.play()
+
+func update_stamina(delta: float, is_moving: bool) -> void:
+	if is_sprinting and can_sprint and is_moving and not is_fatigued:
+		# Drain stamina during active sprint
+		stamina = max(0.0, stamina - SPRINT_DRAIN_RATE * delta)
+		if stamina <= 0.0:
+			trigger_fatigue_penalty()
+		return
+
+	# If player stopped moving or is fatigued, cancel sprint state without any penalty
+	if not is_moving and not is_fatigued:
+		is_sprinting = false
+
+	# Recovery Loop (handles walking, standing, and fatigue freeze)
+	if stamina < 100.0:
+		var recovery_rate: float = 0.0
+		var collected_items: int = 0
+		if attached_cart != null:
+			if "collected_items" in attached_cart:
+				collected_items = attached_cart.collected_items.size()
+			else:
+				collected_items = _get_cart_item_count()
+
+		var in_danger_zone: bool = (stamina < DANGER_ZONE_THRESHOLD) and (attached_cart != null)
+
+		if is_moving:
+			if in_danger_zone:
+				# Scaled trickle while pushing loaded cart through danger zone
+				var trickle_mult: float = clamp(0.25 - (float(collected_items) * 0.02), 0.15, 0.25)
+				recovery_rate = RATE_REST * trickle_mult
+			else:
+				# Normal walk recovery
+				recovery_rate = RATE_WALK
+		else:
+			if in_danger_zone:
+				# Slightly dampened rest while holding loaded cart on incline
+				var rest_mult: float = clamp(0.80 - (float(collected_items) * 0.015), 0.65, 0.80)
+				recovery_rate = RATE_REST * rest_mult
+			else:
+				# Unrestricted full rest recovery
+				recovery_rate = RATE_REST
+
+		# Positive Rate Guarantee: recovery_rate is strictly positive
+		stamina = min(100.0, stamina + recovery_rate * delta)
+
+		# Check sprint gate reset
+		if not can_sprint and stamina >= SPRINT_RECHARGE_GATE:
+			can_sprint = true
+
 func _physics_process(delta: float) -> void:
 	# Gravity
 	if not is_on_floor():
@@ -300,34 +365,14 @@ func _physics_process(delta: float) -> void:
 		load_mult = CART_EMPTY_MASS + (float(items_count) * MASS_PER_ITEM)
 
 	var input_dir := Vector2.ZERO
-	if not is_sliding and not is_fatigued:
+	if not is_fatigued:
 		input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 		
 	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-	var current_speed = SPRINT_SPEED if (is_sprinting and can_sprint) else SPEED
-
-	# --- Stamina Engine & 25% Sprint Recharge Gate ---
-	var is_actively_sprinting: bool = is_sprinting and can_sprint and direction.length_squared() > 0.0001 and not is_fatigued and not is_sliding
-
-	if is_actively_sprinting:
-		stamina = max(0.0, stamina - STAMINA_DEPLETION_RATE * delta)
-		if stamina <= 0.0:
-			# EXHAUSTION EVENT: 0.5s freeze, can_sprint locked, panting SFX!
-			stamina = 0.0
-			is_fatigued = true
-			fatigue_timer = 0.5
-			can_sprint = false
-			is_sprinting = false
-			if panting_sfx_player:
-				panting_sfx_player.pitch_scale = randf_range(0.82, 0.90)
-				panting_sfx_player.play()
-	else:
-		# Stamina regenerates immediately in all other states (including during 0.5s freeze!)
-		stamina = min(MAX_STAMINA, stamina + STAMINA_RECOVERY_RATE * delta)
-		
-		# Check 25% recharge gate
-		if not can_sprint and stamina >= SPRINT_RECHARGE_GATE:
-			can_sprint = true
+	var is_moving: bool = direction.length_squared() > 0.0001 and not is_fatigued
+	
+	# Update stamina engine with tiered recovery matrix
+	update_stamina(delta, is_moving)
 
 	# Handle 0.5s exhaustion freeze timer
 	if is_fatigued:
@@ -338,7 +383,7 @@ func _physics_process(delta: float) -> void:
 
 	# --- Sweat Particle Emission ---
 	if sweat_particles:
-		var should_sweat: bool = is_actively_sprinting or is_fatigued or (not can_sprint and stamina < SPRINT_RECHARGE_GATE)
+		var should_sweat: bool = (is_sprinting and can_sprint and is_moving) or is_fatigued or (not can_sprint and stamina < SPRINT_RECHARGE_GATE)
 		sweat_particles.emitting = should_sweat
 
 	# --- Overhead Billboard UI Update ---
@@ -348,13 +393,17 @@ func _physics_process(delta: float) -> void:
 		overhead_stamina_sprite.modulate.a = move_toward(overhead_stamina_sprite.modulate.a, target_alpha, 3.0 * delta)
 		
 		if not can_sprint:
-			overhead_stamina_bar.modulate = Color(1.0, 0.25, 0.25)
-		elif stamina < 50.0:
-			overhead_stamina_bar.modulate = Color(1.0, 0.85, 0.2)
+			overhead_stamina_bar.modulate = Color(1.0, 0.25, 0.25) # Red exhaustion lockout
+		elif stamina < DANGER_ZONE_THRESHOLD:
+			overhead_stamina_bar.modulate = Color(1.0, 0.55, 0.15) # Danger zone orange/amber
+		elif stamina < 70.0:
+			overhead_stamina_bar.modulate = Color(1.0, 0.85, 0.2)  # Yellow
 		else:
-			overhead_stamina_bar.modulate = Color(0.2, 0.85, 0.95)
+			overhead_stamina_bar.modulate = Color(0.2, 0.85, 0.95) # Cyan/Green
 	
-	if direction and not is_sliding and not is_fatigued:
+	var current_speed = SPRINT_SPEED if (is_sprinting and can_sprint) else SPEED
+
+	if is_moving:
 		var target_vel = direction * current_speed
 		
 		# Unified smooth acceleration (no rigid ground snapping)
@@ -368,32 +417,17 @@ func _physics_process(delta: float) -> void:
 		if is_instance_valid(anim_player) and anim_player.current_animation != "Rig_Medium_MovementBasic/Running_A":
 			anim_player.play("Rig_Medium_MovementBasic/Running_A")
 	else:
-				
 		# --- Unified Low-Friction Deceleration (Walking & Sprinting) ---
 		var friction = BASE_FRICTION # 6.0 m/s^2 matching the loose sprint threshold
 		if attached_cart != null:
 			friction = max(3.2, BASE_FRICTION / sqrt(load_mult))
-		
-		# If we were sprinting with a cart, engage sliding state
-		if is_sprinting and attached_cart != null:
-			is_sliding = true
 			
 		input_velocity.x = move_toward(input_velocity.x, 0.0, friction * delta)
 		input_velocity.z = move_toward(input_velocity.z, 0.0, friction * delta)
 		
-		# Reset sprint and slide only when nearly stopped + 0.5s delay
+		# Reset sprint when nearly stopped (smooth deceleration, zero freeze)
 		if input_velocity.length() < 0.2:
-			if is_sliding:
-				if slide_timer <= 0.0:
-					slide_timer = 0.5 # Begin the 0.5s lock
-				else:
-					slide_timer -= delta
-					if slide_timer <= 0.0:
-						is_sprinting = false
-						is_sliding = false
-						slide_timer = 0.0
-			else:
-				is_sprinting = false
+			is_sprinting = false
 		
 		if is_instance_valid(anim_player) and anim_player.current_animation != "Rig_Medium_MovementBasic/Jump_Idle":
 			anim_player.play("Rig_Medium_MovementBasic/Jump_Idle")

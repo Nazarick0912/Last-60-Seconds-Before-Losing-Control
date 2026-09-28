@@ -349,6 +349,17 @@ func _build_stamina_bar() -> void:
 	_stamina_gate_line.offset_right  =  1.0
 	bar_container.add_child(_stamina_gate_line)
 
+	# 33.33% Danger Zone Threshold Line
+	var danger_line := ColorRect.new()
+	danger_line.color = Color(1.0, 0.45, 0.15, 0.85) # Orange notch
+	danger_line.anchor_left   = 0.3333
+	danger_line.anchor_right  = 0.3333
+	danger_line.anchor_top    = 0.0
+	danger_line.anchor_bottom = 1.0
+	danger_line.offset_left   = -1.0
+	danger_line.offset_right  =  1.0
+	bar_container.add_child(danger_line)
+
 func _process_stamina_ui(delta: float) -> void:
 	if _game_ended:
 		_stamina_panel.modulate.a = move_toward(_stamina_panel.modulate.a, 0.0, 3.0 * delta)
@@ -373,14 +384,19 @@ func _process_stamina_ui(delta: float) -> void:
 	var target_alpha: float = 1.0 if (current_stamina < 99.5 or is_fatigued_val) else 0.0
 	_stamina_panel.modulate.a = move_toward(_stamina_panel.modulate.a, target_alpha, 3.0 * delta)
 
-	# Style and text coloring based on 25% recharge gate state
+	# Style and text coloring based on 25% recharge gate state and 33.33% Danger Zone
 	if not can_spr:
 		# Lockout state (recharging up to 25%)
 		var pulse: float = 0.7 + 0.3 * sin(Time.get_ticks_msec() * 0.015)
 		_stamina_label.text = "EXHAUSTED! (RECHARGING: %d%% / 25%%)" % int(current_stamina)
 		_stamina_label.add_theme_color_override("font_color", Color(1.0, 0.3 * pulse, 0.3 * pulse))
 		_stamina_bar.modulate = Color(1.0, 0.3, 0.3)
-	elif current_stamina < 50.0:
+	elif current_stamina < 33.33:
+		# Danger zone (< 33.33%)
+		_stamina_label.text = "%d%% [DANGER ZONE]" % int(current_stamina)
+		_stamina_label.add_theme_color_override("font_color", Color(1.0, 0.55, 0.15))
+		_stamina_bar.modulate = Color(1.0, 0.55, 0.15)
+	elif current_stamina < 70.0:
 		_stamina_label.text = "%d%%" % int(current_stamina)
 		_stamina_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 		_stamina_bar.modulate = Color(1.0, 0.85, 0.2)
