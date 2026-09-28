@@ -296,7 +296,7 @@ environment = SubResource("Environment_gngh3")
 transform = Transform3D(0.02, 0, 0, 0, 0.02, 0, 0, 0, 0.02, 0, 0, 0)
 
 [node name="Floor" type="CSGBox3D" parent="FLOOR" unique_id=203484088]
-transform = Transform3D(1.1, 0, 0, 0, 7, 0, 0, 0, 1, -11.467131, -13.136191, -770.05493)
+transform = Transform3D(1.1, 0, 0, 0, 7, 0, 0, 0, 1, -11.752708, -12.482287, -769.91437)
 material_override = SubResource("StandardMaterial3D_qsp4k")
 use_collision = true
 size = Vector3(3479.7, 0, 4578.2)
@@ -541,7 +541,7 @@ transform = Transform3D(1.0950823, 0, 0, 0, 1.3354232, 0, 0, 0, 1, 5.686634, -2.
 transform = Transform3D(1.0950823, 0, 0, 0, 1.3354232, 0, 0, 0, 1, 6.4518986, -2.3841858e-07, 3.9470696)
 
 [node name="freezer10" parent="Assets/Market Assets" unique_id=725383472 instance=ExtResource("9_ryguw")]
-transform = Transform3D(0.026927156, 0, 0.9996976, 0, 1.3354232, 0, -1.0947511, 0, 0.024589162, -0.036093403, -2.3841858e-07, 11.995589)
+transform = Transform3D(0.026927156, 0, 0.9996976, 0, 1.3354232, 0, -1.0947511, 0, 0.024589162, -0.036093403, -0.039367974, 11.995589)
 
 [node name="freezer11" parent="Assets/Market Assets" unique_id=2099902033 instance=ExtResource("9_ryguw")]
 transform = Transform3D(0.026927156, 0, 0.9996976, 0, 1.3354232, 0, -1.0947511, 0, 0.024589162, -0.015556289, -2.3841858e-07, 11.160632)
@@ -888,19 +888,19 @@ transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 5.9491606, 0.
 transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 5.9491606, 0.5747613, -40.191357)
 
 [node name="menu14" parent="Assets/kitchen" unique_id=889541926 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 5.3358192, 0.5747613, 4.4578013)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -18.53474, 0.5747613, 12.691809)
 
 [node name="menu15" parent="Assets/kitchen" unique_id=1080356838 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 7.4527903, 0.5747613, 4.4578013)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 7.4527903, 0.5747613, 12.7251835)
 
 [node name="menu16" parent="Assets/kitchen" unique_id=130764419 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 9.45279, 0.5747613, 4.4578013)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 9.45279, 0.5747613, 12.7251835)
 
 [node name="menu17" parent="Assets/kitchen" unique_id=1557869560 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 3.4156852, 0.5747613, 4.4578013)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -20.454876, 0.5747613, 12.691809)
 
 [node name="menu18" parent="Assets/kitchen" unique_id=1106221599 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 1.3188524, 0.5747613, 4.4578013)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -22.551708, 0.5747613, 12.691809)
 
 [node name="menu19" parent="Assets/kitchen" unique_id=849019173 instance=ExtResource("43_d2t1y")]
 transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -1.4221749, 0.5747613, 4.308868)
@@ -921,19 +921,19 @@ transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -4.946844, 0.
 transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -1.5970972, 0.5747613, 2.1313577)
 
 [node name="menu25" parent="Assets/kitchen" unique_id=1358460344 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 1.2775187, 0.5747613, 2.1313577)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -22.593042, 0.5747613, 10.365364)
 
 [node name="menu26" parent="Assets/kitchen" unique_id=2092213133 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 3.1042275, 0.5747613, 2.1313577)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -20.766333, 0.5747613, 10.365364)
 
 [node name="menu27" parent="Assets/kitchen" unique_id=243118503 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 5.359929, 0.5747613, 2.2211947)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, -18.510632, 0.5747613, 10.455202)
 
 [node name="menu28" parent="Assets/kitchen" unique_id=744213747 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 7.359929, 0.44564497, 2.2211947)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 7.359929, 0.44564497, 10.488577)
 
 [node name="menu29" parent="Assets/kitchen" unique_id=1842037248 instance=ExtResource("43_d2t1y")]
-transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 9.608282, 0.44564497, 2.2211947)
+transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 9.608282, 0.44564497, 10.488577)
 
 [node name="menu10" parent="Assets/kitchen" unique_id=62308696 instance=ExtResource("43_d2t1y")]
 transform = Transform3D(1, 0, 0, 0, 0.6156776, 0, 0, 0, 0.3718469, 10.28246, 0.5747613, -38.103817)
@@ -1415,19 +1415,19 @@ transform = Transform3D(0.7070153, 0, 0, 0, 0.5532051, 0, 0, 0, 0.6931169, -24.8
 transform = Transform3D(0.7070153, 0, 0, 0, 0.5532051, 0, 0, 0, 0.6931169, -24.460617, -0.8498716, 5.1398354)
 
 [node name="crate_potatoes2" parent="Assets/Item" unique_id=445330259 instance=ExtResource("70_birbe")]
-transform = Transform3D(0.7070153, 0, 0, 0, 0.95139533, 0, 0, 0, 0.6931169, -14.743335, -1.5217639, 4.8284063)
+transform = Transform3D(0.7070153, 0, 0, 0, 0.95139533, 0, 0, 0, 0.6931169, -31.620186, -1.5217639, 10.522956)
 
 [node name="crate_onions2" parent="Assets/Item" unique_id=785466956 instance=ExtResource("71_f1p13")]
-transform = Transform3D(0.7070153, 0, 0, 0, 0.94122183, 0, 0, 0, 0.6931169, -13.299303, -1.521764, 4.851752)
+transform = Transform3D(0.7070153, 0, 0, 0, 0.94122183, 0, 0, 0, 0.6931169, -30.176155, -1.521764, 10.546301)
 
 [node name="crate_tomatoes2" parent="Assets/Item" unique_id=363977596 instance=ExtResource("72_4obbf")]
-transform = Transform3D(0.7070153, 0, 0, 0, 0.91044044, 0, 0, 0, 0.6931169, -11.857477, -1.5217639, 4.8940144)
+transform = Transform3D(0.7070153, 0, 0, 0, 0.91044044, 0, 0, 0, 0.6931169, -28.73433, -1.5217639, 10.588563)
 
 [node name="crate_ham2" parent="Assets/Item" unique_id=2081706002 instance=ExtResource("73_ovcoh")]
-transform = Transform3D(0.7070153, 0, 0, 0, 0.858422, 0, 0, 0, 0.6931169, -10.403964, -1.5217637, 4.843525)
+transform = Transform3D(0.7070153, 0, 0, 0, 0.858422, 0, 0, 0, 0.6931169, -10.403964, -1.5217637, 10.647024)
 
 [node name="crate_cheese3" parent="Assets/Item" unique_id=920084012 instance=ExtResource("47_hrvbo")]
-transform = Transform3D(0.72325444, 0, 0, 0, 0.8667547, 0, 0, 0, 0.6931169, -8.862392, -1.521764, 4.8315773)
+transform = Transform3D(0.72325444, 0, 0, 0, 0.8667547, 0, 0, 0, 0.6931169, -8.862392, -1.521764, 10.6350765)
 
 [node name="PotA" type="MeshInstance3D" parent="Assets/Item" unique_id=1322502944]
 transform = Transform3D(0.7070153, 0, 0, 0, 0.5532051, 0, 0, 0, 0.6931169, -20.655548, -0.7973246, 4.500212)

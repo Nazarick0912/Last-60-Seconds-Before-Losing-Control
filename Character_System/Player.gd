@@ -47,9 +47,6 @@ var stun_timer: float = 0.0
 # --- Power-up Timers ---
 var caffeine_boost_timer: float = 0.0
 
-# --- Nav Pointer ---
-var nav_pointer_node: Node3D = null
-
 var panting_sfx_player: AudioStreamPlayer
 var sweat_particles: CPUParticles3D
 var overhead_stamina_sprite: Sprite3D
@@ -112,12 +109,6 @@ func _ready():
 	
 	# Find checkout carpets automatically
 	_find_checkout_zones(get_tree().root)
-
-	# --- 3D Floating Stylized Navigation Pointer ---
-	var nav_scene = load("res://NavPointer.tscn")
-	if nav_scene:
-		nav_pointer_node = nav_scene.instantiate()
-		add_child(nav_pointer_node)
 	
 	move_sfx_player = AudioStreamPlayer.new()
 	move_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Hey watch it.ogg")
