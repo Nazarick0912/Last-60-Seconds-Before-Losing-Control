@@ -684,36 +684,7 @@ func _physics_process(delta: float) -> void:
 		var collision = get_slide_collision(i)
 		var collider = collision.get_collider()
 		if collider and collider.is_in_group("npc") and _npc_collision_cooldown <= 0.0:
-			if move_sfx_player:
-				move_sfx_player.play()
-
-			var is_vip_npc = collider.is_in_group("vip_customer") or (collider.get("is_vip") == true)
-			if is_vip_npc:
-				# Instant aggro on crashing into VIP customer!
-				var guard = get_tree().get_first_node_in_group("security_guard")
-				if guard and guard.has_method("trigger_aggro"):
-					guard.trigger_aggro(global_position)
-				var hud = get_tree().root.find_child("ShoppingHUD", true, false)
-				if hud and hud.has_method("show_warning"):
-					hud.show_warning("🚨 VIP CUSTOMER ASSAULTED! The Angry Manager is coming!")
-				_npc_collision_cooldown = 2.5
-			else:
-				# Regular customer crash count (triggers manager on 5 crashes)
-				customer_crash_count += 1
-				if customer_crash_count < 5:
-					var hud = get_tree().root.find_child("ShoppingHUD", true, false)
-					if hud and hud.has_method("show_warning"):
-						hud.show_warning("⚠️ Customer Complaint! (%d/5 crashes)" % customer_crash_count)
-					_npc_collision_cooldown = 1.5
-				else:
-					customer_crash_count = 0
-					var guard = get_tree().get_first_node_in_group("security_guard")
-					if guard and guard.has_method("trigger_aggro"):
-						guard.trigger_aggro(global_position)
-					var hud = get_tree().root.find_child("ShoppingHUD", true, false)
-					if hud and hud.has_method("show_warning"):
-						hud.show_warning("🚨 5 CUSTOMER COMPLAINTS! The Angry Manager is deployed!")
-					_npc_collision_cooldown = 3.0
+			handle_customer_crash(collider)
 
 	if game_started:
 		play_time_passed += delta
@@ -743,6 +714,43 @@ func handle_game_over():
 	if gm:
 		gm.notify_time_up()
 
+# ── Customer Crash Handler (Called on foot or cart collision) ─
+func handle_customer_crash(collider: Node) -> void:
+	if _npc_collision_cooldown > 0.0:
+		return
+
+	if move_sfx_player:
+		move_sfx_player.play()
+
+	var is_vip_npc = collider.is_in_group("vip_customer") or (collider.get("is_vip") == true)
+	if is_vip_npc:
+		# Instant aggro on crashing into VIP customer!
+		customer_crash_count = 0
+		var guard = get_tree().get_first_node_in_group("security_guard")
+		if guard and guard.has_method("trigger_aggro"):
+			guard.trigger_aggro(global_position)
+		var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+		if hud and hud.has_method("show_warning"):
+			hud.show_warning("🚨 VIP CUSTOMER ASSAULTED! The Angry Manager is coming!")
+		_npc_collision_cooldown = 2.5
+	else:
+		# Regular customer crash count (triggers manager on 5 crashes)
+		customer_crash_count += 1
+		if customer_crash_count < 5:
+			var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+			if hud and hud.has_method("show_warning"):
+				hud.show_warning("⚠️ Customer Complaint! (%d/5 crashes)" % customer_crash_count)
+			_npc_collision_cooldown = 1.0
+		else:
+			customer_crash_count = 0
+			var guard = get_tree().get_first_node_in_group("security_guard")
+			if guard and guard.has_method("trigger_aggro"):
+				guard.trigger_aggro(global_position)
+			var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+			if hud and hud.has_method("show_warning"):
+				hud.show_warning("🚨 5 CUSTOMER COMPLAINTS! The Angry Manager is deployed!")
+			_npc_collision_cooldown = 3.0
+
 # ── Hazard Handling (Spilled Milk / Wet Floor Puddle) ──────
 func trigger_spin_out() -> void:
 	if is_spinning:
@@ -764,8 +772,11 @@ func trigger_stun(duration: float = 1.0) -> void:
 	is_stunned = true
 	stun_timer = duration
 	input_velocity = Vector3.ZERO
-	drift_velocity *= 0.2
+	drift_velocity = Vector3.ZERO
 	is_sprinting = false
+	if panting_sfx_player:
+		panting_sfx_player.pitch_scale = randf_range(0.75, 0.85)
+		panting_sfx_player.play()
 
 func scatter_cart_items() -> void:
 	var gm = get_node_or_null("/root/GameModeManager")
@@ -780,7 +791,11 @@ func scatter_cart_items() -> void:
 		if entry["collected"] > 0:
 			items_to_drop.append(key)
 
+	var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+
 	if items_to_drop.is_empty():
+		if hud and hud.has_method("show_warning"):
+			hud.show_warning("💥 BUSTED! The Manager stunned you! Luckily your cart was empty!")
 		return
 
 	items_to_drop.shuffle()
@@ -801,6 +816,9 @@ func scatter_cart_items() -> void:
 
 	gm.list_complete = false
 	gm.emit_signal("list_updated")
+
+	if hud and hud.has_method("show_warning"):
+		hud.show_warning("💥 BUSTED! The Manager stunned you & scattered %d items!" % drop_count)
 
 # ── Power-up Boost Methods (Coffee & Clock) ────────────────
 func apply_coffee_boost() -> void:

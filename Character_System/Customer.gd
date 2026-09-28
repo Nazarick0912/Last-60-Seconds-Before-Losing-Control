@@ -56,8 +56,25 @@ func _ready() -> void:
 	axis_lock_angular_x = true
 	axis_lock_angular_z = true
 
+	# Enable physics contact monitoring to detect player and shopping cart crashes
+	contact_monitor = true
+	max_contacts_reported = 4
+	body_entered.connect(_on_customer_body_entered)
+
 	add_to_group("npc")
 	_pick_new_direction()
+
+func _on_customer_body_entered(body: Node) -> void:
+	var player = null
+	if body.is_in_group("player"):
+		player = body
+	elif body.is_in_group("shopping_cart") or body.name.to_lower().find("cart") != -1:
+		player = get_tree().get_first_node_in_group("player")
+	elif body.get("player_owner") != null:
+		player = body.player_owner
+
+	if player and is_instance_valid(player) and player.has_method("handle_customer_crash"):
+		player.handle_customer_crash(self)
 
 func _create_vip_visuals() -> void:
 	_vip_label = Label3D.new()
