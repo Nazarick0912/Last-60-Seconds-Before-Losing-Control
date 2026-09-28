@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://c8q1b9vbeacon1"]
+[gd_scene format=3]
 
 [ext_resource type="Script" path="res://CheckoutBeacon.gd" id="1_beacon"]
 

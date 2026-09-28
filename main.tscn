@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://7revc4w3mb7l"]
 
 [ext_resource type="PackedScene" uid="uid://w00pl356frv7" path="res://Character_System/Player.tscn" id="1_ig7tw"]
-[ext_resource type="PackedScene" uid="uid://c8q1b9vbeacon1" path="res://CheckoutBeacon.tscn" id="CheckoutBeacon_scene"]
+[ext_resource type="PackedScene" path="res://CheckoutBeacon.tscn" id="CheckoutBeacon_scene"]
 [ext_resource type="Texture2D" uid="uid://dpshaaf32e11n" path="res://Kitchen Asset/KayKit_Restaurant_Bits_1.0_FREE/Assets/textures/restaurantbits_texture.png" id="1_vivmo"]
 [ext_resource type="PackedScene" uid="uid://d1j0tlfjjmkww" path="res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Assets/fbx/table_medium.fbx" id="2_come4"]
 [ext_resource type="PackedScene" uid="uid://evf5h7kklkfk" path="res://Mart Asset/Models/FBX format/bottle-return.fbx" id="3_2cqfq"]
