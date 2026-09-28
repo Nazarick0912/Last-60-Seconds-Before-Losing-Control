@@ -295,26 +295,34 @@ func _get_cart_item_count() -> int:
 func trigger_fatigue_penalty() -> void:
 	stamina = 0.0
 	is_fatigued = true
-	fatigue_timer = 0.5
+	fatigue_timer = 0.75 # Definite freeze penalty duration
 	can_sprint = false
 	is_sprinting = false
+	input_velocity = Vector3.ZERO # Immediately halts active locomotive propulsion!
+	drift_velocity *= 0.3 # Dampen downhill slide so character noticeably stumbles/stops
 	if panting_sfx_player:
 		panting_sfx_player.pitch_scale = randf_range(0.82, 0.90)
 		panting_sfx_player.play()
 
 func update_stamina(delta: float, is_moving: bool) -> void:
-	if is_sprinting and can_sprint and is_moving and not is_fatigued:
+	# CRITICAL: During the fatigue penalty, stamina stays locked at 0.0!
+	# Stamina ONLY begins recovering from 0.0 AFTER the fatigue freeze finishes.
+	if is_fatigued:
+		stamina = 0.0
+		return
+
+	if is_sprinting and can_sprint and is_moving:
 		# Drain stamina during active sprint
 		stamina = max(0.0, stamina - SPRINT_DRAIN_RATE * delta)
 		if stamina <= 0.0:
 			trigger_fatigue_penalty()
 		return
 
-	# If player stopped moving or is fatigued, cancel sprint state without any penalty
-	if not is_moving and not is_fatigued:
+	# If player stopped moving, cancel sprint state without penalty
+	if not is_moving:
 		is_sprinting = false
 
-	# Recovery Loop (handles walking, standing, and fatigue freeze)
+	# Recovery Loop (only runs when NOT fatigued)
 	if stamina < 100.0:
 		var recovery_rate: float = 0.0
 		var collected_items: int = 0
@@ -346,7 +354,7 @@ func update_stamina(delta: float, is_moving: bool) -> void:
 		# Positive Rate Guarantee: recovery_rate is strictly positive
 		stamina = min(100.0, stamina + recovery_rate * delta)
 
-		# Check sprint gate reset
+		# Check sprint gate reset: must recover from 0.0 up to 25.0
 		if not can_sprint and stamina >= SPRINT_RECHARGE_GATE:
 			can_sprint = true
 
@@ -364,6 +372,14 @@ func _physics_process(delta: float) -> void:
 		var items_count = _get_cart_item_count()
 		load_mult = CART_EMPTY_MASS + (float(items_count) * MASS_PER_ITEM)
 
+	# Handle fatigue freeze timer
+	if is_fatigued:
+		input_velocity = Vector3.ZERO # Enforce zero active locomotive drive during freeze!
+		fatigue_timer -= delta
+		if fatigue_timer <= 0.0:
+			is_fatigued = false
+			fatigue_timer = 0.0
+
 	var input_dir := Vector2.ZERO
 	if not is_fatigued:
 		input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
@@ -371,19 +387,25 @@ func _physics_process(delta: float) -> void:
 	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 	var is_moving: bool = direction.length_squared() > 0.0001 and not is_fatigued
 	
-	# Update stamina engine with tiered recovery matrix
+	# Update stamina engine with tiered recovery matrix (guarantees recovery starts from 0% after freeze)
 	update_stamina(delta, is_moving)
 
-	# Handle 0.5s exhaustion freeze timer
-	if is_fatigued:
-		fatigue_timer -= delta
-		if fatigue_timer <= 0.0:
-			is_fatigued = false
-			fatigue_timer = 0.0
+	# Danger Zone Fatigue Slowdown Ratio (0.0 when stamina >= 33.33, up to 1.0 when stamina reaches 0.0)
+	var danger_spent_ratio: float = 0.0
+	if stamina < DANGER_ZONE_THRESHOLD:
+		danger_spent_ratio = clamp((DANGER_ZONE_THRESHOLD - stamina) / DANGER_ZONE_THRESHOLD, 0.0, 1.0)
+
+	# Calculate speed with proportional slowdown in danger zone
+	var base_speed: float = SPRINT_SPEED if (is_sprinting and can_sprint) else SPEED
+	var speed_slowdown: float = 1.0
+	if danger_spent_ratio > 0.0:
+		# Slow down movement directly proportional to stamina spent in danger zone (up to 55% slowdown)
+		speed_slowdown = lerp(1.0, 0.45, danger_spent_ratio)
+	var current_speed: float = base_speed * speed_slowdown
 
 	# --- Sweat Particle Emission ---
 	if sweat_particles:
-		var should_sweat: bool = (is_sprinting and can_sprint and is_moving) or is_fatigued or (not can_sprint and stamina < SPRINT_RECHARGE_GATE)
+		var should_sweat: bool = (is_sprinting and can_sprint and is_moving) or is_fatigued or (danger_spent_ratio > 0.0) or (not can_sprint and stamina < SPRINT_RECHARGE_GATE)
 		sweat_particles.emitting = should_sweat
 
 	# --- Overhead Billboard UI Update ---
@@ -400,13 +422,20 @@ func _physics_process(delta: float) -> void:
 			overhead_stamina_bar.modulate = Color(1.0, 0.85, 0.2)  # Yellow
 		else:
 			overhead_stamina_bar.modulate = Color(0.2, 0.85, 0.95) # Cyan/Green
-	
-	var current_speed = SPRINT_SPEED if (is_sprinting and can_sprint) else SPEED
 
-	if is_moving:
+	# --- Movement & Animation Processing ---
+	if is_fatigued:
+		# Frozen in fatigue penalty: character hunches and pants
+		if is_instance_valid(anim_player):
+			if anim_player.current_animation != "Rig_Medium_MovementBasic/Jump_Idle":
+				anim_player.play("Rig_Medium_MovementBasic/Jump_Idle")
+			anim_player.speed_scale = 1.0
+		if is_instance_valid(visual_model):
+			visual_model.rotation.x = lerp(visual_model.rotation.x, deg_to_rad(16.0), 10.0 * delta)
+	elif is_moving:
 		var target_vel = direction * current_speed
 		
-		# Unified smooth acceleration (no rigid ground snapping)
+		# Unified smooth acceleration
 		var accel = 24.0
 		input_velocity.x = move_toward(input_velocity.x, target_vel.x, accel * delta)
 		input_velocity.z = move_toward(input_velocity.z, target_vel.z, accel * delta)
@@ -414,23 +443,50 @@ func _physics_process(delta: float) -> void:
 		if is_instance_valid(visual_model):
 			var target_angle = atan2(input_dir.x, input_dir.y)
 			visual_model.rotation.y = lerp_angle(visual_model.rotation.y, target_angle, TURN_SPEED * delta)
-		if is_instance_valid(anim_player) and anim_player.current_animation != "Rig_Medium_MovementBasic/Running_A":
-			anim_player.play("Rig_Medium_MovementBasic/Running_A")
+			
+			# Visually lean/slump forward proportionally to stamina spent in danger zone
+			if danger_spent_ratio > 0.0:
+				var tired_lean: float = lerp(0.0, deg_to_rad(14.0), danger_spent_ratio)
+				var pant_bob: float = sin(Time.get_ticks_msec() * 0.015) * deg_to_rad(3.0) * danger_spent_ratio
+				visual_model.rotation.x = tired_lean + pant_bob
+			else:
+				visual_model.rotation.x = move_toward(visual_model.rotation.x, 0.0, 4.0 * delta)
+				
+		if is_instance_valid(anim_player):
+			# If in danger zone, switch to heavy labored run/walk and slow down animation speed
+			if danger_spent_ratio > 0.25:
+				var tired_anim: String = "Rig_Medium_MovementBasic/Running_B" if is_sprinting else "Rig_Medium_MovementBasic/Walking_B"
+				if anim_player.current_animation != tired_anim:
+					anim_player.play(tired_anim)
+				anim_player.speed_scale = lerp(1.0, 0.65, danger_spent_ratio)
+			else:
+				var normal_anim: String = "Rig_Medium_MovementBasic/Running_A" if is_sprinting else "Rig_Medium_MovementBasic/Walking_A"
+				if anim_player.current_animation != normal_anim:
+					anim_player.play(normal_anim)
+				anim_player.speed_scale = 1.0
 	else:
-		# --- Unified Low-Friction Deceleration (Walking & Sprinting) ---
-		var friction = BASE_FRICTION # 6.0 m/s^2 matching the loose sprint threshold
+		# Stopped or standing still
+		if is_instance_valid(visual_model):
+			if danger_spent_ratio > 0.0:
+				var rest_pant: float = sin(Time.get_ticks_msec() * 0.008) * deg_to_rad(4.0) * danger_spent_ratio
+				visual_model.rotation.x = lerp(visual_model.rotation.x, deg_to_rad(10.0) * danger_spent_ratio + rest_pant, 5.0 * delta)
+			else:
+				visual_model.rotation.x = move_toward(visual_model.rotation.x, 0.0, 4.0 * delta)
+				
+		var friction = BASE_FRICTION
 		if attached_cart != null:
 			friction = max(3.2, BASE_FRICTION / sqrt(load_mult))
 			
 		input_velocity.x = move_toward(input_velocity.x, 0.0, friction * delta)
 		input_velocity.z = move_toward(input_velocity.z, 0.0, friction * delta)
 		
-		# Reset sprint when nearly stopped (smooth deceleration, zero freeze)
 		if input_velocity.length() < 0.2:
 			is_sprinting = false
 		
-		if is_instance_valid(anim_player) and anim_player.current_animation != "Rig_Medium_MovementBasic/Jump_Idle":
-			anim_player.play("Rig_Medium_MovementBasic/Jump_Idle")
+		if is_instance_valid(anim_player):
+			if anim_player.current_animation != "Rig_Medium_MovementBasic/Jump_Idle":
+				anim_player.play("Rig_Medium_MovementBasic/Jump_Idle")
+			anim_player.speed_scale = 1.0
 
 	# --- Wavy Floor Effect Update ---
 	var floor_container = get_parent().get_node_or_null("FLOOR")
