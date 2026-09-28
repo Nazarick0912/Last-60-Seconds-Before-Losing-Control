@@ -223,15 +223,19 @@ func _refresh_list() -> void:
 
 func _on_game_won() -> void:
 	_game_ended = true
+	_update_timer()
+	var secs: int = int(ceil(max(0.0, _time_left)))
 	_result_title.text = "🎉  MISSION COMPLETE!"
 	_result_title.add_theme_color_override("font_color", Color(0.25, 1.0, 0.35))
-	_result_sub.text   = "You found everything on your list — great shopper!\n\nTime remaining: %ds" % int(max(0, _time_left))
+	_result_sub.text   = "You found everything on your list — great shopper!\n\nTime remaining: %ds" % secs
 	_result_root.visible = true
 	get_tree().paused = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 func _on_game_lost() -> void:
 	_game_ended = true
+	_time_left = 0.0
+	_update_timer()
 	_result_title.text = "⏰  TIME'S UP!"
 	_result_title.add_theme_color_override("font_color", Color(1.0, 0.32, 0.22))
 	_result_sub.text   = "You didn't finish your shopping in time.\nWatch out for those pesky shoppers blocking you!"
