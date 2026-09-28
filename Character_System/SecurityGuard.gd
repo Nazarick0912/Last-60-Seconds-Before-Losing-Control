@@ -149,7 +149,7 @@ func _catch_player() -> void:
 	_update_visual_state()
 	_pick_new_patrol_point()
 
-func trigger_aggro(source_pos: Vector3 = Vector3.ZERO) -> void:
+func trigger_aggro(_source_pos: Vector3 = Vector3.ZERO) -> void:
 	if current_state == State.COOLDOWN:
 		return # Still in cooldown grace period
 

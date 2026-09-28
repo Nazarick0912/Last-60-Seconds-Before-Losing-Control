@@ -130,21 +130,23 @@ func animate_scatter_toss(start_pos: Vector3, target_pos: Vector3) -> void:
 
 func _on_body_entered(body: Node3D) -> void:
 	if _collected or pickup_cooldown > 0.0: return
-	if body is CharacterBody3D:
-		if body.attached_cart == null:
-			var gm := get_node_or_null("/root/GameModeManager")
-			if gm and gm.has_signal("warning_triggered"):
-				gm.emit_signal("warning_triggered", "🛒 Cart required to collect groceries!")
-			var hud := get_tree().root.find_child("ShoppingHUD", true, false)
-			if hud and hud.has_method("show_warning"):
-				hud.show_warning("🛒 Cart required to collect groceries!")
-			return
+	# Only the player character can collect groceries
+	if not body.is_in_group("player"): return
+
+	if body.get("attached_cart") == null:
 		var gm := get_node_or_null("/root/GameModeManager")
-		if gm:
-			if not (item_id in gm.shopping_list): return
-			var entry = gm.shopping_list[item_id]
-			if entry["collected"] >= entry["required"]: return
-		_do_collect()
+		if gm and gm.has_signal("warning_triggered"):
+			gm.emit_signal("warning_triggered", "🛒 Cart required to collect groceries!")
+		var hud := get_tree().root.find_child("ShoppingHUD", true, false)
+		if hud and hud.has_method("show_warning"):
+			hud.show_warning("🛒 Cart required to collect groceries!")
+		return
+	var gm := get_node_or_null("/root/GameModeManager")
+	if gm:
+		if not (item_id in gm.shopping_list): return
+		var entry = gm.shopping_list[item_id]
+		if entry["collected"] >= entry["required"]: return
+	_do_collect()
 
 func _do_collect() -> void:
 	_collected = true

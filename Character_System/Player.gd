@@ -65,7 +65,6 @@ var start_carpet = null
 @export var TOTAL_TIME = 60.0
 var play_time_passed: float = 0.0
 var sway_phase: float = 0.0
-var _hey_played: bool = false
 
 # --- Camera Sway & Escalation Settings ---
 @export_group("Camera Sway & Escalation")
