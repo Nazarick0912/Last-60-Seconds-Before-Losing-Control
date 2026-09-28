@@ -1,0 +1,38 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Character_System/SecurityGuard.gd" id="1_guard"]
+[ext_resource type="PackedScene" path="res://Character_System/Ranger.glb" id="2_ranger"]
+[ext_resource type="AnimationLibrary" path="res://Character_System/Rig_Medium_MovementBasic.glb" id="3_anims"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_guard"]
+radius = 0.9
+height = 2.4
+
+[node name="SecurityGuard" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 3
+script = ExtResource("1_guard")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+shape = SubResource("CapsuleShape3D_guard")
+
+[node name="Model" parent="." instance=ExtResource("2_ranger")]
+transform = Transform3D(1.15, 0, 0, 0, 1.15, 0, 0, 0, 1.15, 0, 0, 0)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Model"]
+libraries/Rig_Medium_MovementBasic = ExtResource("3_anims")
+
+[node name="OverheadLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.7, 0)
+billboard = 1
+text = "👮 Security Guard"
+font_size = 28
+outline_size = 6
+outline_modulate = Color(0, 0, 0, 1)
+
+[node name="SirenLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 0)
+light_color = Color(0.2, 0.6, 1)
+light_energy = 0.8
+omni_range = 4.0

@@ -20,8 +20,19 @@ const BOUNDS_MAX : Vector3 = Vector3( 4.0,  -2.0,  -4.0)
 var _move_dir  : Vector3 = Vector3.ZERO
 var _dir_timer : float   = 0.0
 
+@export var is_vip: bool = false
+var _vip_label: Label3D = null
+
 func _ready() -> void:
 	randomize()
+
+	# 20% chance to be a VIP customer if not explicitly configured
+	if not is_vip and randf() < 0.20:
+		is_vip = true
+
+	if is_vip:
+		add_to_group("vip_customer")
+		_create_vip_visuals()
 
 	# Pick and show a random character model
 	var all_chars: Array = mesh_container.get_children()
@@ -47,6 +58,24 @@ func _ready() -> void:
 
 	add_to_group("npc")
 	_pick_new_direction()
+
+func _create_vip_visuals() -> void:
+	_vip_label = Label3D.new()
+	_vip_label.text = "👑 VIP Shopper"
+	_vip_label.font_size = 28
+	_vip_label.modulate = Color(1.0, 0.85, 0.1)
+	_vip_label.outline_modulate = Color(0.1, 0.05, 0.0, 1.0)
+	_vip_label.outline_size = 6
+	_vip_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_vip_label.position = Vector3(0, 2.5, 0)
+	add_child(_vip_label)
+
+	var vip_light = OmniLight3D.new()
+	vip_light.light_color = Color(1.0, 0.85, 0.2)
+	vip_light.light_energy = 0.8
+	vip_light.omni_range = 2.5
+	vip_light.position = Vector3(0, 2.2, 0)
+	add_child(vip_light)
 
 func _physics_process(delta: float) -> void:
 	if not is_inside_tree(): return

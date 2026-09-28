@@ -1,0 +1,88 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://HazardPuddle.gd" id="1_puddle"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_puddle"]
+height = 0.6
+radius = 1.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_milk"]
+transparency = 1
+albedo_color = Color(0.96, 0.96, 1, 0.92)
+roughness = 0.04
+emission_enabled = true
+emission = Color(0.1, 0.1, 0.15, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_puddle"]
+material = SubResource("StandardMaterial3D_milk")
+top_radius = 1.5
+bottom_radius = 1.5
+height = 0.02
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sign"]
+albedo_color = Color(1, 0.85, 0.05, 1)
+roughness = 0.3
+
+[sub_resource type="BoxMesh" id="BoxMesh_sign_board"]
+material = SubResource("StandardMaterial3D_sign")
+size = Vector3(0.5, 0.7, 0.04)
+
+[sub_resource type="Curve" id="Curve_splash"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -2.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_splash"]
+albedo_color = Color(0.95, 0.95, 1, 1)
+roughness = 0.1
+
+[sub_resource type="SphereMesh" id="SphereMesh_drop"]
+material = SubResource("StandardMaterial3D_splash")
+radius = 0.08
+height = 0.16
+
+[node name="HazardPuddle" type="Area3D"]
+collision_layer = 8
+collision_mask = 3
+script = ExtResource("1_puddle")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+shape = SubResource("CylinderShape3D_puddle")
+
+[node name="PuddleMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, 0)
+mesh = SubResource("CylinderMesh_puddle")
+
+[node name="CautionSign" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.85, 0, 0)
+
+[node name="BoardA" type="MeshInstance3D" parent="CautionSign"]
+transform = Transform3D(0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 0, 0, 1, -0.06, 0.32, 0)
+mesh = SubResource("BoxMesh_sign_board")
+
+[node name="BoardB" type="MeshInstance3D" parent="CautionSign"]
+transform = Transform3D(0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0, 1, 0.06, 0.32, 0)
+mesh = SubResource("BoxMesh_sign_board")
+
+[node name="SignLabel" type="Label3D" parent="CautionSign"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+billboard = 1
+text = "⚠️ WET FLOOR"
+font_size = 20
+modulate = Color(1, 0.85, 0.1, 1)
+outline_size = 4
+outline_modulate = Color(0, 0, 0, 1)
+
+[node name="SplashParticles" type="CPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+emitting = false
+amount = 24
+lifetime = 0.6
+one_shot = true
+explosiveness = 0.9
+mesh = SubResource("SphereMesh_drop")
+direction = Vector3(0, 1, 0)
+spread = 65.0
+initial_velocity_min = 3.5
+initial_velocity_max = 6.0
+scale_amount_curve = SubResource("Curve_splash")

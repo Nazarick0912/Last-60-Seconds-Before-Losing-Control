@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://7revc4w3mb7l"]
 
 [ext_resource type="PackedScene" uid="uid://w00pl356frv7" path="res://Character_System/Player.tscn" id="1_ig7tw"]
-[ext_resource type="PackedScene" path="res://CheckoutBeacon.tscn" id="CheckoutBeacon_scene"]
 [ext_resource type="Texture2D" uid="uid://dpshaaf32e11n" path="res://Kitchen Asset/KayKit_Restaurant_Bits_1.0_FREE/Assets/textures/restaurantbits_texture.png" id="1_vivmo"]
 [ext_resource type="PackedScene" uid="uid://d1j0tlfjjmkww" path="res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Assets/fbx/table_medium.fbx" id="2_come4"]
 [ext_resource type="PackedScene" uid="uid://evf5h7kklkfk" path="res://Mart Asset/Models/FBX format/bottle-return.fbx" id="3_2cqfq"]
@@ -80,8 +79,9 @@
 [ext_resource type="PackedScene" uid="uid://bgcc57327j1b3" path="res://Character_System/Customer.tscn" id="80_npc"]
 [ext_resource type="Script" uid="uid://cnfi1qr1dgi1a" path="res://GameItemSpawner.gd" id="81_spawner"]
 [ext_resource type="Script" uid="uid://c018dayf71uyy" path="res://ShoppingHUD.gd" id="82_hud"]
-[ext_resource type="Shader" path="res://wavy_floor.gdshader" id="83_wavy"]
+[ext_resource type="Shader" uid="uid://b30vm24a44or8" path="res://wavy_floor.gdshader" id="83_wavy"]
 [ext_resource type="Script" uid="uid://o5sdjtwyr0xv" path="res://SunCycle.gd" id="84_sun"]
+[ext_resource type="PackedScene" path="res://CheckoutBeacon.tscn" id="CheckoutBeacon_scene"]
 [ext_resource type="Script" uid="uid://cetwdb67kcx5t" path="res://InstructionSign.gd" id="InstructionSign_res"]
 
 [sub_resource type="Environment" id="Environment_gngh3"]
@@ -231,8 +231,8 @@ outline_size = 10
 horizontal_alignment = 0
 script = ExtResource("InstructionSign_res")
 
-[node name="CheckoutBeacon" parent="." instance=ExtResource("CheckoutBeacon_scene")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18.59, -0.25, -42.5)
+[node name="CheckoutBeacon" parent="." unique_id=14249646 instance=ExtResource("CheckoutBeacon_scene")]
+transform = Transform3D(1, 0, 0, 0, 1.6254636, 0, 0, 0, 1, -18.59, -0.25, -42.5)
 
 [node name="InstructionSign7" type="Label3D" parent="." unique_id=1413923296]
 transform = Transform3D(0.99889416, 0, 0, 0, 0.99889416, 0, 0, 0, 0.99889416, 4.4038334, 3.411953, -45.4614)

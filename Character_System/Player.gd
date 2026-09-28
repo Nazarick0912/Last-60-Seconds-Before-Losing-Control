@@ -33,6 +33,23 @@ var is_fatigued: bool = false
 var fatigue_timer: float = 0.0
 var _npc_collision_cooldown: float = 0.0
 
+# --- Hazard Handling (Spin-Out) ---
+var is_spinning: bool = false
+var spin_timer: float = 0.0
+const SPIN_DURATION: float = 1.1
+var spin_start_rot_y: float = 0.0
+
+# --- Security Guard & Customer Crash System ---
+var customer_crash_count: int = 0
+var is_stunned: bool = false
+var stun_timer: float = 0.0
+
+# --- Power-up Timers ---
+var caffeine_boost_timer: float = 0.0
+
+# --- Nav Pointer ---
+var nav_pointer_node: Node3D = null
+
 var panting_sfx_player: AudioStreamPlayer
 var sweat_particles: CPUParticles3D
 var overhead_stamina_sprite: Sprite3D
@@ -95,6 +112,12 @@ func _ready():
 	
 	# Find checkout carpets automatically
 	_find_checkout_zones(get_tree().root)
+
+	# --- 3D Floating Stylized Navigation Pointer ---
+	var nav_scene = load("res://NavPointer.tscn")
+	if nav_scene:
+		nav_pointer_node = nav_scene.instantiate()
+		add_child(nav_pointer_node)
 	
 	move_sfx_player = AudioStreamPlayer.new()
 	move_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Hey watch it.ogg")
@@ -305,6 +328,13 @@ func trigger_fatigue_penalty() -> void:
 		panting_sfx_player.play()
 
 func update_stamina(delta: float, is_moving: bool) -> void:
+	# Power-up: Unlimited stamina during Caffeine Rush!
+	if caffeine_boost_timer > 0.0:
+		caffeine_boost_timer = max(0.0, caffeine_boost_timer - delta)
+		stamina = 100.0
+		can_sprint = true
+		return
+
 	# CRITICAL: During the fatigue penalty, stamina stays locked at 0.0!
 	# Stamina ONLY begins recovering from 0.0 AFTER the fatigue freeze finishes.
 	if is_fatigued:
@@ -380,12 +410,29 @@ func _physics_process(delta: float) -> void:
 			is_fatigued = false
 			fatigue_timer = 0.0
 
+	# Handle security guard stun penalty (1.0 second freeze)
+	if is_stunned:
+		input_velocity = Vector3.ZERO
+		drift_velocity *= 0.8
+		stun_timer -= delta
+		if stun_timer <= 0.0:
+			is_stunned = false
+
+	# Handle 360° spin-out on puddle hazard
+	if is_spinning:
+		spin_timer -= delta
+		var spin_prog = 1.0 - clamp(spin_timer / SPIN_DURATION, 0.0, 1.0)
+		if is_instance_valid(visual_model):
+			visual_model.rotation.y = spin_start_rot_y + (spin_prog * TAU)
+		if spin_timer <= 0.0:
+			is_spinning = false
+
 	var input_dir := Vector2.ZERO
-	if not is_fatigued:
+	if not is_fatigued and not is_stunned and not is_spinning:
 		input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 		
 	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-	var is_moving: bool = direction.length_squared() > 0.0001 and not is_fatigued
+	var is_moving: bool = direction.length_squared() > 0.0001 and not is_fatigued and not is_stunned and not is_spinning
 	
 	# Update stamina engine with tiered recovery matrix (guarantees recovery starts from 0% after freeze)
 	update_stamina(delta, is_moving)
@@ -397,6 +444,8 @@ func _physics_process(delta: float) -> void:
 
 	# Calculate speed with proportional slowdown in danger zone
 	var base_speed: float = SPRINT_SPEED if (is_sprinting and can_sprint) else SPEED
+	if caffeine_boost_timer > 0.0:
+		base_speed *= 1.25
 	var speed_slowdown: float = 1.0
 	if danger_spent_ratio > 0.0:
 		# Slow down movement directly proportional to stamina spent in danger zone (up to 55% slowdown)
@@ -638,7 +687,7 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	
-	# --- NPC Collision Sound Trigger ---
+	# --- NPC & VIP Customer Collision Handling ---
 	_npc_collision_cooldown -= delta
 	for i in get_slide_collision_count():
 		var collision = get_slide_collision(i)
@@ -646,7 +695,34 @@ func _physics_process(delta: float) -> void:
 		if collider and collider.is_in_group("npc") and _npc_collision_cooldown <= 0.0:
 			if move_sfx_player:
 				move_sfx_player.play()
-				_npc_collision_cooldown = 2.0 # 2 second cooldown 
+
+			var is_vip_npc = collider.is_in_group("vip_customer") or (collider.get("is_vip") == true)
+			if is_vip_npc:
+				# Instant aggro on crashing into VIP customer!
+				var guard = get_tree().get_first_node_in_group("security_guard")
+				if guard and guard.has_method("trigger_aggro"):
+					guard.trigger_aggro(global_position)
+				var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+				if hud and hud.has_method("show_warning"):
+					hud.show_warning("🚨 VIP CUSTOMER ASSAULTED! The Angry Manager is coming!")
+				_npc_collision_cooldown = 2.5
+			else:
+				# Regular customer crash count (triggers manager on 5 crashes)
+				customer_crash_count += 1
+				if customer_crash_count < 5:
+					var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+					if hud and hud.has_method("show_warning"):
+						hud.show_warning("⚠️ Customer Complaint! (%d/5 crashes)" % customer_crash_count)
+					_npc_collision_cooldown = 1.5
+				else:
+					customer_crash_count = 0
+					var guard = get_tree().get_first_node_in_group("security_guard")
+					if guard and guard.has_method("trigger_aggro"):
+						guard.trigger_aggro(global_position)
+					var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+					if hud and hud.has_method("show_warning"):
+						hud.show_warning("🚨 5 CUSTOMER COMPLAINTS! The Angry Manager is deployed!")
+					_npc_collision_cooldown = 3.0
 
 	if game_started:
 		play_time_passed += delta
@@ -675,3 +751,73 @@ func handle_game_over():
 	var gm := get_node_or_null("/root/GameModeManager")
 	if gm:
 		gm.notify_time_up()
+
+# ── Hazard Handling (Spilled Milk / Wet Floor Puddle) ──────
+func trigger_spin_out() -> void:
+	if is_spinning:
+		return
+	is_spinning = true
+	spin_timer = SPIN_DURATION
+	spin_start_rot_y = visual_model.rotation.y if is_instance_valid(visual_model) else rotation.y
+	
+	if panting_sfx_player:
+		panting_sfx_player.pitch_scale = randf_range(1.4, 1.8)
+		panting_sfx_player.play()
+		
+	var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+	if hud and hud.has_method("show_warning"):
+		hud.show_warning("⚠️ SLIPPED ON MILK! 360° SPIN-OUT!")
+
+# ── Security Guard Consequence: 1.0s Stun & Scatter Cart ───
+func trigger_stun(duration: float = 1.0) -> void:
+	is_stunned = true
+	stun_timer = duration
+	input_velocity = Vector3.ZERO
+	drift_velocity *= 0.2
+	is_sprinting = false
+
+func scatter_cart_items() -> void:
+	var gm = get_node_or_null("/root/GameModeManager")
+	if not gm or not "shopping_list" in gm:
+		return
+
+	var collectible_scene = load("res://CollectibleItem.tscn")
+	var items_to_drop: Array = []
+
+	for key in gm.shopping_list:
+		var entry = gm.shopping_list[key]
+		if entry["collected"] > 0:
+			items_to_drop.append(key)
+
+	if items_to_drop.is_empty():
+		return
+
+	items_to_drop.shuffle()
+	var drop_count = mini(items_to_drop.size(), 2)
+
+	for i in range(drop_count):
+		var key = items_to_drop[i]
+		gm.shopping_list[key]["collected"] = max(0, gm.shopping_list[key]["collected"] - 1)
+
+		if collectible_scene:
+			var item_inst = collectible_scene.instantiate()
+			item_inst.item_id = key
+			item_inst.item_display_name = gm.shopping_list[key]["label"]
+			item_inst.use_spawn_pos = true
+			var scatter_offset = Vector3(randf_range(-2.5, 2.5), 0.2, randf_range(-2.5, 2.5))
+			item_inst.spawn_global_pos = global_position + scatter_offset
+			get_parent().call_deferred("add_child", item_inst)
+
+	gm.list_complete = false
+	gm.emit_signal("list_updated")
+
+# ── Power-up Boost Methods (Coffee & Clock) ────────────────
+func apply_coffee_boost() -> void:
+	stamina = 100.0
+	can_sprint = true
+	is_fatigued = false
+	fatigue_timer = 0.0
+	caffeine_boost_timer = 5.0
+
+func apply_clock_boost(seconds: float = 10.0) -> void:
+	play_time_passed = max(0.0, play_time_passed - seconds)
