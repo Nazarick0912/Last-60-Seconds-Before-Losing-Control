@@ -9,6 +9,8 @@ extends Node
 signal list_updated()
 signal game_won()
 signal game_lost()
+signal checkout_ready()
+signal warning_triggered(msg: String)
 
 # Shopping list definition: key → { label, required, collected }
 var shopping_list: Dictionary = {}
@@ -130,9 +132,13 @@ func _check_win() -> void:
 			return
 	
 	# All items collected, but we haven't checked out yet!
-	list_complete = true
-	# We omit the game_won signal here and wait for checkout
-	emit_signal("list_updated") 
+	if not list_complete:
+		list_complete = true
+		emit_signal("checkout_ready")
+		emit_signal("list_updated") 
+
+func trigger_win() -> void:
+	do_checkout()
 
 func do_checkout() -> void:
 	if list_complete and not _game_ended:

@@ -87,7 +87,14 @@ func _process(delta: float) -> void:
 func _on_body_entered(body: Node3D) -> void:
 	if _collected: return
 	if body is CharacterBody3D:
-		if body.attached_cart == null: return
+		if body.attached_cart == null:
+			var gm := get_node_or_null("/root/GameModeManager")
+			if gm and gm.has_signal("warning_triggered"):
+				gm.emit_signal("warning_triggered", "🛒 Cart required to collect groceries!")
+			var hud := get_tree().root.find_child("ShoppingHUD", true, false)
+			if hud and hud.has_method("show_warning"):
+				hud.show_warning("🛒 Cart required to collect groceries!")
+			return
 		var gm := get_node_or_null("/root/GameModeManager")
 		if gm:
 			if not (item_id in gm.shopping_list): return

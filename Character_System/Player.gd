@@ -20,11 +20,24 @@ var is_sliding = false
 var slide_timer = 0.0
 var target_zoom = 4.0 # Initial camera distance
 
-# Fatigue mechanic variables
-var push_time = 0.0
-var fatigue_timer = 0.0
-var is_fatigued = false
-var _npc_collision_cooldown = 0.0
+# --- Stamina System & 25% Sprint Recharge Gate ---
+@export_group("Stamina System")
+@export var MAX_STAMINA: float = 100.0
+@export var STAMINA_DEPLETION_RATE: float = 28.57  # Units/s (exhausts in 3.5s)
+@export var STAMINA_RECOVERY_RATE: float = 19.05   # Units/s (1.5x slower, full refill in 5.25s)
+@export var SPRINT_RECHARGE_GATE: float = 25.0     # 25% minimum gate to sprint again after exhaustion
+
+var stamina: float = 100.0
+var can_sprint: bool = true
+var is_fatigued: bool = false
+var fatigue_timer: float = 0.0
+var _npc_collision_cooldown: float = 0.0
+
+var panting_sfx_player: AudioStreamPlayer
+var sweat_particles: CPUParticles3D
+var overhead_stamina_sprite: Sprite3D
+var overhead_stamina_bar: ProgressBar
+var overhead_stamina_viewport: SubViewport
 
 var game_started = false
 var start_carpet = null
@@ -87,6 +100,89 @@ func _ready():
 	move_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Hey watch it.ogg")
 	add_child(move_sfx_player)
 
+	panting_sfx_player = AudioStreamPlayer.new()
+	panting_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Ouch.ogg")
+	add_child(panting_sfx_player)
+
+	# --- Sweat Particle FX Setup ---
+	sweat_particles = CPUParticles3D.new()
+	sweat_particles.emitting = false
+	sweat_particles.amount = 14
+	sweat_particles.lifetime = 0.6
+	sweat_particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	sweat_particles.emission_sphere_radius = 0.25
+	sweat_particles.direction = Vector3(0, 1, 0)
+	sweat_particles.spread = 45.0
+	sweat_particles.initial_velocity_min = 0.4
+	sweat_particles.initial_velocity_max = 0.8
+	sweat_particles.gravity = Vector3(0, -6.0, 0)
+
+	var drop_mesh = SphereMesh.new()
+	drop_mesh.radius = 0.035
+	drop_mesh.height = 0.07
+	var drop_mat = StandardMaterial3D.new()
+	drop_mat.albedo_color = Color(0.5, 0.85, 1.0, 0.85)
+	drop_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	drop_mat.emission_enabled = true
+	drop_mat.emission = Color(0.4, 0.8, 1.0)
+	drop_mat.emission_energy_multiplier = 1.5
+	drop_mesh.material = drop_mat
+	sweat_particles.mesh = drop_mesh
+	sweat_particles.position = Vector3(0, 1.9, 0)
+	if visual_model:
+		visual_model.add_child(sweat_particles)
+	else:
+		add_child(sweat_particles)
+
+	# --- Overhead Billboard Stamina Bar Setup ---
+	overhead_stamina_viewport = SubViewport.new()
+	overhead_stamina_viewport.size = Vector2i(140, 18)
+	overhead_stamina_viewport.transparent_bg = true
+	overhead_stamina_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(overhead_stamina_viewport)
+
+	overhead_stamina_bar = ProgressBar.new()
+	overhead_stamina_bar.size = Vector2(140, 18)
+	overhead_stamina_bar.show_percentage = false
+	overhead_stamina_bar.min_value = 0.0
+	overhead_stamina_bar.max_value = 100.0
+	overhead_stamina_bar.value     = 100.0
+
+	var bar_bg = StyleBoxFlat.new()
+	bar_bg.bg_color = Color(0.08, 0.08, 0.12, 0.85)
+	bar_bg.corner_radius_top_left     = 6
+	bar_bg.corner_radius_top_right    = 6
+	bar_bg.corner_radius_bottom_left  = 6
+	bar_bg.corner_radius_bottom_right = 6
+	bar_bg.set_border_width_all(2)
+	bar_bg.border_color = Color(0.3, 0.6, 0.9, 0.9)
+	overhead_stamina_bar.add_theme_stylebox_override("background", bar_bg)
+
+	var bar_fill = StyleBoxFlat.new()
+	bar_fill.bg_color = Color(0.2, 0.85, 0.95, 1.0)
+	bar_fill.corner_radius_top_left     = 5
+	bar_fill.corner_radius_top_right    = 5
+	bar_fill.corner_radius_bottom_left  = 5
+	bar_fill.corner_radius_bottom_right = 5
+	overhead_stamina_bar.add_theme_stylebox_override("fill", bar_fill)
+	overhead_stamina_viewport.add_child(overhead_stamina_bar)
+
+	# 25% gate notch marker on overhead bar
+	var gate_marker = ColorRect.new()
+	gate_marker.color = Color(1.0, 0.85, 0.2, 0.9)
+	gate_marker.position = Vector2(35, 0) # 25% of 140 width
+	gate_marker.size = Vector2(2, 18)
+	overhead_stamina_bar.add_child(gate_marker)
+
+	overhead_stamina_sprite = Sprite3D.new()
+	overhead_stamina_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	overhead_stamina_sprite.texture = overhead_stamina_viewport.get_texture()
+	overhead_stamina_sprite.position = Vector3(0, 2.35, 0)
+	overhead_stamina_sprite.pixel_size = 0.009
+	overhead_stamina_sprite.no_depth_test = true
+	overhead_stamina_sprite.modulate.a = 0.0 # Initially faded out
+	add_child(overhead_stamina_sprite)
+
 func _find_checkout_zones(node: Node):
 	if "carpet_round_large" in node.name.to_lower():
 		start_carpet = node
@@ -124,13 +220,14 @@ func _input(event):
 		else:
 			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-	# 5. Handle Double-Tap Sprint Detection
+	# 5. Handle Double-Tap Sprint Detection (Obeying 25% sprint gate)
 	if event is InputEventKey and event.pressed and not event.is_echo():
 		for action in ["ui_up", "ui_down", "ui_left", "ui_right"]:
 			if event.is_action_pressed(action):
 				var current_time = Time.get_ticks_msec() / 1000.0
 				if (current_time - last_press_times[action]) < DOUBLE_TAP_TIME:
-					is_sprinting = true
+					if can_sprint and stamina > 0.0:
+						is_sprinting = true
 				last_press_times[action] = current_time
 
 func _try_grab_nearest_cart():
@@ -207,7 +304,55 @@ func _physics_process(delta: float) -> void:
 		input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 		
 	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-	var current_speed = SPRINT_SPEED if is_sprinting else SPEED
+	var current_speed = SPRINT_SPEED if (is_sprinting and can_sprint) else SPEED
+
+	# --- Stamina Engine & 25% Sprint Recharge Gate ---
+	var is_actively_sprinting: bool = is_sprinting and can_sprint and direction.length_squared() > 0.0001 and not is_fatigued and not is_sliding
+
+	if is_actively_sprinting:
+		stamina = max(0.0, stamina - STAMINA_DEPLETION_RATE * delta)
+		if stamina <= 0.0:
+			# EXHAUSTION EVENT: 0.5s freeze, can_sprint locked, panting SFX!
+			stamina = 0.0
+			is_fatigued = true
+			fatigue_timer = 0.5
+			can_sprint = false
+			is_sprinting = false
+			if panting_sfx_player:
+				panting_sfx_player.pitch_scale = randf_range(0.82, 0.90)
+				panting_sfx_player.play()
+	else:
+		# Stamina regenerates immediately in all other states (including during 0.5s freeze!)
+		stamina = min(MAX_STAMINA, stamina + STAMINA_RECOVERY_RATE * delta)
+		
+		# Check 25% recharge gate
+		if not can_sprint and stamina >= SPRINT_RECHARGE_GATE:
+			can_sprint = true
+
+	# Handle 0.5s exhaustion freeze timer
+	if is_fatigued:
+		fatigue_timer -= delta
+		if fatigue_timer <= 0.0:
+			is_fatigued = false
+			fatigue_timer = 0.0
+
+	# --- Sweat Particle Emission ---
+	if sweat_particles:
+		var should_sweat: bool = is_actively_sprinting or is_fatigued or (not can_sprint and stamina < SPRINT_RECHARGE_GATE)
+		sweat_particles.emitting = should_sweat
+
+	# --- Overhead Billboard UI Update ---
+	if overhead_stamina_sprite and overhead_stamina_bar:
+		overhead_stamina_bar.value = stamina
+		var target_alpha: float = 1.0 if (stamina < 99.5 or is_fatigued) else 0.0
+		overhead_stamina_sprite.modulate.a = move_toward(overhead_stamina_sprite.modulate.a, target_alpha, 3.0 * delta)
+		
+		if not can_sprint:
+			overhead_stamina_bar.modulate = Color(1.0, 0.25, 0.25)
+		elif stamina < 50.0:
+			overhead_stamina_bar.modulate = Color(1.0, 0.85, 0.2)
+		else:
+			overhead_stamina_bar.modulate = Color(0.2, 0.85, 0.95)
 	
 	if direction and not is_sliding and not is_fatigued:
 		var target_vel = direction * current_speed
@@ -217,28 +362,12 @@ func _physics_process(delta: float) -> void:
 		input_velocity.x = move_toward(input_velocity.x, target_vel.x, accel * delta)
 		input_velocity.z = move_toward(input_velocity.z, target_vel.z, accel * delta)
 		
-		# --- Fatigue Exertion ---
-		if attached_cart != null and is_sprinting:
-			push_time += delta
-			if push_time >= 3.5:
-				is_fatigued = true
-				push_time = 0.0
-				fatigue_timer = 0.5
 		if is_instance_valid(visual_model):
 			var target_angle = atan2(input_dir.x, input_dir.y)
 			visual_model.rotation.y = lerp_angle(visual_model.rotation.y, target_angle, TURN_SPEED * delta)
 		if is_instance_valid(anim_player) and anim_player.current_animation != "Rig_Medium_MovementBasic/Running_A":
 			anim_player.play("Rig_Medium_MovementBasic/Running_A")
 	else:
-		# Reset push time if we stop moving voluntarily
-		if not is_fatigued:
-			push_time = 0.0
-			
-		# Handle fatigue recovery (input locked to 0, but downhill drift continues to pull)
-		if is_fatigued:
-			fatigue_timer -= delta
-			if fatigue_timer <= 0.0:
-				is_fatigued = false
 				
 		# --- Unified Low-Friction Deceleration (Walking & Sprinting) ---
 		var friction = BASE_FRICTION # 6.0 m/s^2 matching the loose sprint threshold
@@ -410,7 +539,12 @@ func _physics_process(delta: float) -> void:
 		for zone in checkout_zones:
 			if is_instance_valid(zone):
 				if global_position.distance_to(zone.global_position) < 3.0:
-					gm.do_checkout()
+					if attached_cart != null:
+						gm.trigger_win()
+					else:
+						var hud := get_tree().root.find_child("ShoppingHUD", true, false)
+						if hud and hud.has_method("show_warning"):
+							hud.show_warning("🛒 Bring your cart to checkout to win!")
 
 	move_and_slide()
 	
