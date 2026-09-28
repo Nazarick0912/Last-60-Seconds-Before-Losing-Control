@@ -29,11 +29,11 @@ var win_sfx_player: AudioStreamPlayer
 func _ready() -> void:
 	# --- AUDIO SETUP ---
 	bgm_player = AudioStreamPlayer.new()
-	var bgm_stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Zambolino - Reflection (freetouse.com).ogg") as AudioStreamOggVorbis
+	var bgm_stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/In the Hall of the Mountain King.ogg") as AudioStreamOggVorbis
 	if bgm_stream:
 		bgm_stream.loop = true
 	bgm_player.stream = bgm_stream
-	bgm_player.volume_db = -12.0
+	bgm_player.volume_db = -10.0
 	bgm_player.autoplay = true
 	add_child(bgm_player)
 	
