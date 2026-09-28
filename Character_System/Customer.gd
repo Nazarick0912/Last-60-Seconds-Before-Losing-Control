@@ -26,8 +26,8 @@ var _vip_label: Label3D = null
 func _ready() -> void:
 	randomize()
 
-	# 20% chance to be a VIP customer if not explicitly configured
-	if not is_vip and randf() < 0.20:
+	# 30% chance to be a VIP customer if not explicitly configured
+	if not is_vip and randf() < 0.30:
 		is_vip = true
 
 	if is_vip:
@@ -78,20 +78,20 @@ func _on_customer_body_entered(body: Node) -> void:
 
 func _create_vip_visuals() -> void:
 	_vip_label = Label3D.new()
-	_vip_label.text = "👑 VIP Shopper"
-	_vip_label.font_size = 28
-	_vip_label.modulate = Color(1.0, 0.85, 0.1)
-	_vip_label.outline_modulate = Color(0.1, 0.05, 0.0, 1.0)
-	_vip_label.outline_size = 6
+	_vip_label.text = "👑 VIP CUSTOMER\n(DO NOT HIT!)"
+	_vip_label.font_size = 32
+	_vip_label.modulate = Color(1.0, 0.85, 0.1, 1.0)
+	_vip_label.outline_modulate = Color(0.0, 0.0, 0.0, 1.0)
+	_vip_label.outline_size = 10
 	_vip_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_vip_label.position = Vector3(0, 2.5, 0)
+	_vip_label.position = Vector3(0, 2.8, 0)
 	add_child(_vip_label)
 
 	var vip_light = OmniLight3D.new()
-	vip_light.light_color = Color(1.0, 0.85, 0.2)
-	vip_light.light_energy = 0.8
-	vip_light.omni_range = 2.5
-	vip_light.position = Vector3(0, 2.2, 0)
+	vip_light.light_color = Color(1.0, 0.85, 0.2, 1.0)
+	vip_light.light_energy = 1.4
+	vip_light.omni_range = 3.5
+	vip_light.position = Vector3(0, 2.4, 0)
 	add_child(vip_light)
 
 func _physics_process(delta: float) -> void:

@@ -5,8 +5,8 @@
 [ext_resource type="AnimationLibrary" path="res://Character_System/Rig_Medium_MovementBasic.glb" id="3_anims"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_guard"]
-radius = 0.9
-height = 2.4
+radius = 1.4
+height = 4.2
 
 [node name="SecurityGuard" type="CharacterBody3D"]
 collision_layer = 1
@@ -14,27 +14,27 @@ collision_mask = 1
 script = ExtResource("1_guard")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.1, 0)
 shape = SubResource("CapsuleShape3D_guard")
 
 [node name="Model" parent="." instance=ExtResource("2_ranger")]
-transform = Transform3D(1.15, 0, 0, 0, 1.15, 0, 0, 0, 1.15, 0, 0, 0)
+transform = Transform3D(2.2, 0, 0, 0, 2.2, 0, 0, 0, 2.2, 0, 0, 0)
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="Model"]
 libraries/Rig_Medium_MovementBasic = ExtResource("3_anims")
 
 [node name="OverheadLabel" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.7, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.2, 0)
 billboard = 1
-text = "👮 Security Guard"
-font_size = 28
-outline_size = 6
+text = "🚨 ANGRY MANAGER"
+font_size = 48
+outline_size = 12
 outline_modulate = Color(0, 0, 0, 1)
 
 [node name="SirenLight" type="OmniLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 0)
-light_color = Color(0.2, 0.6, 1.0, 1.0)
-light_energy = 0.8
-omni_range = 4.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.8, 0)
+light_color = Color(1.0, 0.1, 0.1, 1.0)
+light_energy = 3.0
+omni_range = 8.0
 
 [editable path="Model"]

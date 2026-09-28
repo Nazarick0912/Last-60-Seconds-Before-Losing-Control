@@ -93,11 +93,11 @@ func _process_chase(delta: float) -> void:
 	to_player.y = 0.0
 	var dist = to_player.length()
 
-	# Catch player or player's cart check!
-	var caught: bool = (dist < 2.5)
+	# Catch player or player's cart check (scaled for larger body)
+	var caught: bool = (dist < 3.2)
 	if not caught and target_player.attached_cart != null and is_instance_valid(target_player.attached_cart):
 		var cart_dist = global_position.distance_to(target_player.attached_cart.global_position)
-		if cart_dist < 2.3:
+		if cart_dist < 3.0:
 			caught = true
 
 	if caught:

@@ -724,32 +724,19 @@ func handle_customer_crash(collider: Node) -> void:
 
 	var is_vip_npc = collider.is_in_group("vip_customer") or (collider.get("is_vip") == true)
 	if is_vip_npc:
-		# Instant aggro on crashing into VIP customer!
-		customer_crash_count = 0
+		# ONLY VIP customer triggers the guard!
 		var guard = get_tree().get_first_node_in_group("security_guard")
 		if guard and guard.has_method("trigger_aggro"):
 			guard.trigger_aggro(global_position)
 		var hud = get_tree().root.find_child("ShoppingHUD", true, false)
 		if hud and hud.has_method("show_warning"):
-			hud.show_warning("🚨 VIP CUSTOMER ASSAULTED! The Angry Manager is coming!")
+			hud.show_warning("🚨 VIP CUSTOMER ASSAULTED! The Angry Manager is furious!")
 		_npc_collision_cooldown = 2.5
 	else:
-		# Regular customer crash count (triggers manager on 5 crashes)
-		customer_crash_count += 1
-		if customer_crash_count < 5:
-			var hud = get_tree().root.find_child("ShoppingHUD", true, false)
-			if hud and hud.has_method("show_warning"):
-				hud.show_warning("⚠️ Customer Complaint! (%d/5 crashes)" % customer_crash_count)
-			_npc_collision_cooldown = 1.0
-		else:
-			customer_crash_count = 0
-			var guard = get_tree().get_first_node_in_group("security_guard")
-			if guard and guard.has_method("trigger_aggro"):
-				guard.trigger_aggro(global_position)
-			var hud = get_tree().root.find_child("ShoppingHUD", true, false)
-			if hud and hud.has_method("show_warning"):
-				hud.show_warning("🚨 5 CUSTOMER COMPLAINTS! The Angry Manager is deployed!")
-			_npc_collision_cooldown = 3.0
+		# Regular customer: only plays audio feedback, does NOT trigger the manager!
+		if move_sfx_player:
+			move_sfx_player.play()
+		_npc_collision_cooldown = 0.8
 
 # ── Hazard Handling (Spilled Milk / Wet Floor Puddle) ──────
 func trigger_spin_out() -> void:
@@ -795,7 +782,7 @@ func scatter_cart_items() -> void:
 
 	if items_to_drop.is_empty():
 		if hud and hud.has_method("show_warning"):
-			hud.show_warning("💥 BUSTED! The Manager stunned you! Luckily your cart was empty!")
+			hud.show_warning("💥 BUSTED! The Manager caught you! Lucky your cart was empty!")
 		return
 
 	items_to_drop.shuffle()
@@ -809,16 +796,30 @@ func scatter_cart_items() -> void:
 			var item_inst = collectible_scene.instantiate()
 			item_inst.item_id = key
 			item_inst.item_display_name = gm.shopping_list[key]["label"]
-			item_inst.use_spawn_pos = true
-			var scatter_offset = Vector3(randf_range(-2.5, 2.5), 0.2, randf_range(-2.5, 2.5))
-			item_inst.spawn_global_pos = global_position + scatter_offset
+			item_inst.use_spawn_pos = false
+			
+			# Scatter 3.0 to 4.5m away on the floor with arc toss
+			var angle = randf_range(0.0, TAU)
+			var dist = randf_range(3.0, 4.5)
+			var target_pos = global_position + Vector3(cos(angle) * dist, 0.1, sin(angle) * dist)
+			var start_pos = global_position + Vector3(0, 1.2, 0)
+			
 			get_parent().call_deferred("add_child", item_inst)
+			item_inst.call_deferred("animate_scatter_toss", start_pos, target_pos)
+
+	# Play scatter drop sound
+	var sfx = AudioStreamPlayer.new()
+	sfx.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Lose2.ogg")
+	sfx.pitch_scale = 1.6
+	get_tree().root.add_child(sfx)
+	sfx.play()
+	sfx.finished.connect(sfx.queue_free)
 
 	gm.list_complete = false
 	gm.emit_signal("list_updated")
 
 	if hud and hud.has_method("show_warning"):
-		hud.show_warning("💥 BUSTED! The Manager stunned you & scattered %d items!" % drop_count)
+		hud.show_warning("💥 BUSTED! The Manager scattered %d grocery items!" % drop_count)
 
 # ── Power-up Boost Methods (Coffee & Clock) ────────────────
 func apply_coffee_boost() -> void:
