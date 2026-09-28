@@ -50,13 +50,18 @@ var _hey_played: bool = false
 # --- Camera-Aligned Sliding Drift & Load Inertia Settings ---
 @export_group("Tilt & Load Inertia")
 @export var BASE_TILT_MAGNITUDE: float = 14.0  # Base acceleration constant for tilt pull (m/s^2)
+@export var MAX_DRIFT_SPEED_CAP: float = 3.25   # Hard ceiling on drift velocity (strictly <= 65% of 5.0 m/s walk speed)
 @export var KNIGHT_BASE_MASS: float = 1.0      # Mass multiplier on foot (without cart)
-@export var CART_EMPTY_MASS: float = 1.5       # Base mass multiplier when pushing empty cart
-@export var MASS_PER_ITEM: float = 0.25        # Additional mass multiplier per grocery item collected
+@export var CART_EMPTY_MASS: float = 1.4       # Base mass multiplier when pushing empty cart
+@export var MASS_PER_ITEM: float = 0.20        # Additional mass multiplier per grocery item collected
 @export var BASE_FRICTION: float = 6.0         # Unified low-friction deceleration (m/s^2)
-@export var MAX_OPPOSING_DRIFT_RATIO: float = 0.75 # Maximum fraction of player speed that opposing slope drift can counteract
+@export var MAX_OPPOSING_DRIFT_RATIO: float = 0.65 # Opposing drift can NEVER counteract more than 65% of player speed
+@export var FORWARD_ANCHOR_CROSS_DRIFT_RATIO: float = 0.50 # Max cross-drift as fraction of forward speed while anchored
+@export var COUNTER_STEER_SLOPE_CLAMP_RATIO: float = 0.65  # Max slope drift fraction when counter-steering
+@export var DRIFT_DAMPING: float = 1.5         # Viscous drag damping for smooth, manageable acceleration
 
 var drift_velocity: Vector3 = Vector3.ZERO     # Accumulated lateral slope drift velocity
+var input_velocity: Vector3 = Vector3.ZERO     # Active player locomotion velocity
 
 var move_sfx_player: AudioStreamPlayer
 var attached_cart: RigidBody3D = null
@@ -208,9 +213,9 @@ func _physics_process(delta: float) -> void:
 		var target_vel = direction * current_speed
 		
 		# Unified smooth acceleration (no rigid ground snapping)
-		var accel = 18.0
-		velocity.x = move_toward(velocity.x, target_vel.x, accel * delta)
-		velocity.z = move_toward(velocity.z, target_vel.z, accel * delta)
+		var accel = 24.0
+		input_velocity.x = move_toward(input_velocity.x, target_vel.x, accel * delta)
+		input_velocity.z = move_toward(input_velocity.z, target_vel.z, accel * delta)
 		
 		# --- Fatigue Exertion ---
 		if attached_cart != null and is_sprinting:
@@ -244,11 +249,11 @@ func _physics_process(delta: float) -> void:
 		if is_sprinting and attached_cart != null:
 			is_sliding = true
 			
-		velocity.x = move_toward(velocity.x, 0.0, friction * delta)
-		velocity.z = move_toward(velocity.z, 0.0, friction * delta)
+		input_velocity.x = move_toward(input_velocity.x, 0.0, friction * delta)
+		input_velocity.z = move_toward(input_velocity.z, 0.0, friction * delta)
 		
 		# Reset sprint and slide only when nearly stopped + 0.5s delay
-		if velocity.length() < 0.2:
+		if input_velocity.length() < 0.2:
 			if is_sliding:
 				if slide_timer <= 0.0:
 					slide_timer = 0.5 # Begin the 0.5s lock
@@ -274,12 +279,15 @@ func _physics_process(delta: float) -> void:
 				f.material_override.set_shader_parameter("wave_intensity", floor_intensity)
 				f.material_override.set_shader_parameter("time", play_time_passed)
 
-	# --- Drunken Camera Sway & Dynamic Roll (Phase Accumulated & 28% Baseline) ---
+	# --- Drunken Camera Sway & Dynamic Roll (Phase Accumulated & 30% Baseline) ---
 	var active_roll_angle: float = 0.0
 	if is_instance_valid(camera):
-		# 1. Normalized Direct Scalar with 28% Active Baseline
+		# 1. Normalized Direct Scalar with 30% Active Baseline & Last 20s Escalation Surge
 		var raw_progress: float = clamp(play_time_passed / TOTAL_TIME, 0.0, 1.0) if game_started else 0.0
-		var escalation_factor: float = lerp(0.28, 1.0, raw_progress) if game_started else 0.0
+		var late_surge: float = 0.0
+		if raw_progress > 0.66: # Ramps up dynamically during the final 20 seconds
+			late_surge = pow((raw_progress - 0.66) / 0.34, 1.25) * 0.40
+		var escalation_factor: float = clamp(lerp(0.30, 1.0, raw_progress) + late_surge, 0.0, 1.40) if game_started else 0.0
 		
 		# 2. Continuous Frequency Acceleration via Phase Accumulation
 		var current_sway_speed: float = lerp(BASE_SWAY_SPEED, MAX_SWAY_SPEED, escalation_factor)
@@ -297,7 +305,7 @@ func _physics_process(delta: float) -> void:
 		camera.rotation_degrees.z = active_roll_angle
 
 	# --- Camera-Aligned Sliding Drift & Load Inertia ---
-	if is_instance_valid(camera) and game_started and active_roll_angle != 0.0:
+	if is_instance_valid(camera) and game_started:
 		# 1. Downhill Vector Derivation (using load_mult calculated above)
 
 		# Extract camera horizontal right vector (flattened on Y = 0 and normalized)
@@ -308,54 +316,85 @@ func _physics_process(delta: float) -> void:
 		else:
 			cam_right = Vector3.RIGHT
 		
-		# When roll > 0 (camera rolls clockwise), the right side of the screen dips down.
-		# When roll < 0 (camera rolls counter-clockwise), the left side dips down.
 		# sin(deg_to_rad(active_roll_angle)) gives the downhill slope ratio toward the lower side
 		var slope_ratio: float = sin(deg_to_rad(active_roll_angle))
 		var downhill_vector: Vector3 = cam_right * slope_ratio
 		
-		# 3. Force Injection (Continuous Accumulation)
-		# Scale resulting vector by base tilt magnitude, cart load multiplier, and delta
-		var tilt_accel: Vector3 = downhill_vector * BASE_TILT_MAGNITUDE * load_mult
+		# 2. Pulling Force Escalation (Slightly increased pulling force, especially during last 20s)
+		var raw_progress_drift: float = clamp(play_time_passed / TOTAL_TIME, 0.0, 1.0)
+		var last_20s_pull: float = 1.0
+		if raw_progress_drift > 0.66: # Final 20 seconds
+			last_20s_pull += pow((raw_progress_drift - 0.66) / 0.34, 1.2) * 0.45
+		
+		# Manageable acceleration injection
+		var tilt_accel: Vector3 = downhill_vector * (BASE_TILT_MAGNITUDE * last_20s_pull) * load_mult
 		drift_velocity += tilt_accel * delta
 		
-		# Ground friction damping for drift so it settles predictably
-		var drift_friction: float = 4.5
-		drift_velocity = drift_velocity.move_toward(Vector3.ZERO, drift_friction * delta)
+		# Viscous drag damping: eliminates static friction deadbands so drift is immediately felt,
+		# while smoothly curbing acceleration toward manageable terminal velocities
+		drift_velocity = drift_velocity.lerp(Vector3.ZERO, DRIFT_DAMPING * delta)
 		
-		# 4. Asymmetric Directional Vector Projection & Opposition Clamping
+		# Hard ceiling on drift velocity so it remains balanced (max 3.25 m/s)
+		if drift_velocity.length() > MAX_DRIFT_SPEED_CAP:
+			drift_velocity = drift_velocity.normalized() * MAX_DRIFT_SPEED_CAP
+		
+		# 3. Binary Forward Anchor & Strict 65% Opposing Drift Clamp
 		var effective_drift: Vector3 = drift_velocity
 		
-		# Check if the player has active directional input
-		if direction.length_squared() > 0.0001 and not is_fatigued:
-			var d_input: Vector3 = direction.normalized()
-			var d_downhill: Vector3 = downhill_vector.normalized() if downhill_vector.length_squared() > 0.0001 else Vector3.ZERO
-			var oppose_factor: float = d_input.dot(d_downhill)
+		# Camera forward vector on horizontal plane
+		var cam_forward = -Vector3(cam_basis.z.x, 0.0, cam_basis.z.z)
+		if cam_forward.length_squared() > 0.0001:
+			cam_forward = cam_forward.normalized()
+		else:
+			cam_forward = -Vector3.FORWARD
 			
-			# When oppose_factor < 0.0, the player is pushing uphill / against the slope
-			if oppose_factor < 0.0 and d_downhill != Vector3.ZERO:
-				# Decompose drift_velocity into parallel (along d_input) and perpendicular components
-				var parallel_dot: float = drift_velocity.dot(d_input) # Negative value when opposing
-				var v_parallel: Vector3 = d_input * parallel_dot
-				var v_perp: Vector3 = drift_velocity - v_parallel
-				
-				# Maximum allowed opposing speed (e.g. 75% of active locomotive speed)
-				var max_opposing_speed: float = current_speed * MAX_OPPOSING_DRIFT_RATIO
-				
-				# Clamp opposing parallel component so player always maintains positive forward headway
-				if abs(parallel_dot) > max_opposing_speed:
-					v_parallel = -d_input * max_opposing_speed
-					
-				# Recombine clamped parallel component with untouched lateral/perpendicular drift
-				effective_drift = v_parallel + v_perp
-			# When oppose_factor >= 0.0 (downhill or parallel): no clamp, full boost retained!
+		var d_downhill: Vector3 = downhill_vector.normalized() if downhill_vector.length_squared() > 0.0001 else Vector3.ZERO
+		
+		# Active intentional player locomotion vector
+		var v_input: Vector3 = direction * current_speed if (direction.length_squared() > 0.0001 and not is_fatigued) else Vector3.ZERO
+		
+		if v_input.length_squared() > 0.0001:
+			var v_forward: float = v_input.dot(cam_forward)
 			
-		# Add directly to horizontal velocity prior to move_and_slide()
-		velocity.x += effective_drift.x
-		velocity.z += effective_drift.z
+			# 3a. Forward Keel Anchor:
+			# When driving forward along aisle (v_forward > 0.1), anchor lateral cross-drift
+			# to prevent violent sideways slamming while steering down corridors
+			if v_forward > 0.1 and d_downhill != Vector3.ZERO:
+				var slope_drift_dot: float = effective_drift.dot(d_downhill)
+				var v_slope_drift: Vector3 = d_downhill * slope_drift_dot
+				var v_remaining_drift: Vector3 = effective_drift - v_slope_drift
+				
+				var max_allowed_cross_drift: float = v_forward * FORWARD_ANCHOR_CROSS_DRIFT_RATIO
+				if abs(slope_drift_dot) > max_allowed_cross_drift:
+					v_slope_drift = d_downhill * sign(slope_drift_dot) * max_allowed_cross_drift
+				effective_drift = v_slope_drift + v_remaining_drift
+
+			# 3b. Strict Opposing Drift Clamp:
+			# The opposing drift can NEVER counteract more than 65% of player's active speed!
+			# Guarantees at least 35% forward headway in player's intended direction under all conditions.
+			var u_input: Vector3 = v_input.normalized()
+			var input_speed: float = v_input.length()
+			var drift_along_input: float = effective_drift.dot(u_input)
+			
+			if drift_along_input < 0.0:
+				var max_opposing: float = input_speed * MAX_OPPOSING_DRIFT_RATIO
+				if abs(drift_along_input) > max_opposing:
+					var clamped_opposing_drift: float = -max_opposing
+					var perp_drift: Vector3 = effective_drift - (u_input * drift_along_input)
+					effective_drift = (u_input * clamped_opposing_drift) + perp_drift
+		else:
+			# Unanchored Release: when player is not actively pressing keys, coasting, or fatigued,
+			# raw accumulated drift asserts full control, smoothly sliding player and cart downhill
+			effective_drift = drift_velocity
+			
+		# Sum active locomotion and slope drift without compounding
+		velocity.x = input_velocity.x + effective_drift.x
+		velocity.z = input_velocity.z + effective_drift.z
 	else:
 		# Decay drift when stopped or before game starts
-		drift_velocity = drift_velocity.move_toward(Vector3.ZERO, 5.0 * delta)
+		drift_velocity = drift_velocity.lerp(Vector3.ZERO, 3.0 * delta)
+		velocity.x = input_velocity.x
+		velocity.z = input_velocity.z
 
 	# --- Start Game Proximity Trigger ---
 	var gm = get_node_or_null("/root/GameModeManager")
