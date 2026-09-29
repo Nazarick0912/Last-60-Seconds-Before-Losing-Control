@@ -32,10 +32,10 @@ func _ready() -> void:
 	var bgm_stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/In the Hall of the Mountain King.ogg") as AudioStreamOggVorbis
 	if bgm_stream:
 		bgm_stream.loop = true
+		bgm_stream.loop_offset = 35.0
 	bgm_player.stream = bgm_stream
 	bgm_player.bus = &"Music"
-	bgm_player.volume_db = -2.5
-	bgm_player.autoplay = true
+	bgm_player.volume_db = 6.0
 	add_child(bgm_player)
 	
 	pickup_player = AudioStreamPlayer.new()
@@ -60,10 +60,14 @@ func _ready() -> void:
 	win_sfx_player.bus = &"SFX"
 	add_child(win_sfx_player)
 
+func restart_music() -> void:
+	if bgm_player:
+		bgm_player.stop()
+		bgm_player.play(35.0)
+
 func _reset_list() -> void:
-	# Resume BGM if it was stopped (e.g. after a loss)
-	if bgm_player and not bgm_player.playing:
-		bgm_player.play()
+	# Always restart music from 35s on restart
+	restart_music()
 	shopping_list.clear()
 	
 	var ALL_AVAILABLE = [

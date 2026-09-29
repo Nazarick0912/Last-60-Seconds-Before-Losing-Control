@@ -85,7 +85,7 @@ theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
 theme_override_colors/font_outline_color = Color(0.15, 0.08, 0.25, 0.9)
 theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 16
-text = "80%"
+text = "50%"
 
 [node name="MasterSlider" type="HSlider" parent="CenterContainer/CardPanel/MarginContainer/VBox/SlidersVBox/MasterGroup"]
 unique_name_in_owner = true
@@ -93,7 +93,7 @@ custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 max_value = 1.0
 step = 0.05
-value = 0.8
+value = 0.5
 
 [node name="MusicGroup" type="VBoxContainer" parent="CenterContainer/CardPanel/MarginContainer/VBox/SlidersVBox"]
 layout_mode = 2
@@ -121,7 +121,7 @@ theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
 theme_override_colors/font_outline_color = Color(0.15, 0.08, 0.25, 0.9)
 theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 16
-text = "80%"
+text = "50%"
 
 [node name="MusicSlider" type="HSlider" parent="CenterContainer/CardPanel/MarginContainer/VBox/SlidersVBox/MusicGroup"]
 unique_name_in_owner = true
@@ -129,7 +129,7 @@ custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 max_value = 1.0
 step = 0.05
-value = 0.8
+value = 0.5
 
 [node name="SFXGroup" type="VBoxContainer" parent="CenterContainer/CardPanel/MarginContainer/VBox/SlidersVBox"]
 layout_mode = 2
@@ -157,7 +157,7 @@ theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
 theme_override_colors/font_outline_color = Color(0.15, 0.08, 0.25, 0.9)
 theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 16
-text = "80%"
+text = "50%"
 
 [node name="SFXSlider" type="HSlider" parent="CenterContainer/CardPanel/MarginContainer/VBox/SlidersVBox/SFXGroup"]
 unique_name_in_owner = true
@@ -165,7 +165,7 @@ custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 max_value = 1.0
 step = 0.05
-value = 0.8
+value = 0.5
 
 [node name="VoiceGroup" type="VBoxContainer" parent="CenterContainer/CardPanel/MarginContainer/VBox/SlidersVBox"]
 layout_mode = 2
@@ -193,7 +193,7 @@ theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
 theme_override_colors/font_outline_color = Color(0.15, 0.08, 0.25, 0.9)
 theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 16
-text = "80%"
+text = "50%"
 
 [node name="VoiceSlider" type="HSlider" parent="CenterContainer/CardPanel/MarginContainer/VBox/SlidersVBox/VoiceGroup"]
 unique_name_in_owner = true
@@ -201,7 +201,7 @@ custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 max_value = 1.0
 step = 0.05
-value = 0.8
+value = 0.5
 
 [node name="TiltGroup" type="VBoxContainer" parent="CenterContainer/CardPanel/MarginContainer/VBox/SlidersVBox"]
 layout_mode = 2

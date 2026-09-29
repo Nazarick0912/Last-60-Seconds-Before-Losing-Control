@@ -29,6 +29,7 @@ func _on_start_pressed() -> void:
 	_transitioning = true
 	
 	GameModeManager.play_start_sound()
+	GameModeManager.restart_music()
 	
 	var tw = create_tween()
 	tw.tween_property(self, "modulate:a", 0.0, 0.5)

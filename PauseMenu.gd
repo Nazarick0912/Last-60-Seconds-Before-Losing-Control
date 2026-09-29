@@ -56,6 +56,13 @@ func _setup_node_references() -> void:
 	if not card_panel:
 		card_panel = find_child("CardPanel", true, false) as PanelContainer
 
+const BUS_BASE_DB: Dictionary = {
+	"Master": 0.0,
+	"Music": 6.0,
+	"SFX": -7.5,
+	"Voice": -5.0
+}
+
 static func _static_init() -> void:
 	# Load settings statically on startup so camera_tilt_scale and buses are immediately synced
 	apply_saved_audio_and_tilt()
@@ -63,10 +70,10 @@ static func _static_init() -> void:
 static func apply_saved_audio_and_tilt() -> void:
 	var cfg = ConfigFile.new()
 	if cfg.load(SETTINGS_PATH) == OK:
-		var master_vol = float(cfg.get_value("audio", "master_volume", 0.8))
-		var music_vol = float(cfg.get_value("audio", "music_volume", 0.8))
-		var sfx_vol = float(cfg.get_value("audio", "sfx_volume", 0.8))
-		var voice_vol = float(cfg.get_value("audio", "voice_volume", 0.8))
+		var master_vol = float(cfg.get_value("audio", "master_volume", 0.5))
+		var music_vol = float(cfg.get_value("audio", "music_volume", 0.5))
+		var sfx_vol = float(cfg.get_value("audio", "sfx_volume", 0.5))
+		var voice_vol = float(cfg.get_value("audio", "voice_volume", 0.5))
 		camera_tilt_scale = float(cfg.get_value("gameplay", "camera_tilt_scale", 1.0))
 		set_bus_linear("Master", master_vol)
 		set_bus_linear("Music", music_vol)
@@ -74,10 +81,10 @@ static func apply_saved_audio_and_tilt() -> void:
 		set_bus_linear("Voice", voice_vol)
 	else:
 		camera_tilt_scale = 1.0
-		set_bus_linear("Master", 0.8)
-		set_bus_linear("Music", 0.8)
-		set_bus_linear("SFX", 0.8)
-		set_bus_linear("Voice", 0.8)
+		set_bus_linear("Master", 0.5)
+		set_bus_linear("Music", 0.5)
+		set_bus_linear("SFX", 0.5)
+		set_bus_linear("Voice", 0.5)
 
 static func set_bus_linear(bus_name: String, linear_val: float) -> void:
 	var idx = AudioServer.get_bus_index(bus_name)
@@ -86,7 +93,8 @@ static func set_bus_linear(bus_name: String, linear_val: float) -> void:
 			AudioServer.set_bus_mute(idx, true)
 		else:
 			AudioServer.set_bus_mute(idx, false)
-			AudioServer.set_bus_volume_db(idx, linear_to_db(linear_val))
+			var base_db: float = BUS_BASE_DB.get(bus_name, 0.0)
+			AudioServer.set_bus_volume_db(idx, base_db + linear_to_db(linear_val))
 
 func _enter_tree() -> void:
 	_setup_node_references()
@@ -397,17 +405,17 @@ func _on_tilt_slider_changed(val: float) -> void:
 func load_settings() -> void:
 	var cfg = ConfigFile.new()
 	var err = cfg.load(SETTINGS_PATH)
-	var master_vol: float = 0.8
-	var music_vol: float = 0.8
-	var sfx_vol: float = 0.8
-	var voice_vol: float = 0.8
+	var master_vol: float = 0.5
+	var music_vol: float = 0.5
+	var sfx_vol: float = 0.5
+	var voice_vol: float = 0.5
 	var tilt_val: float = 1.0
 
 	if err == OK:
-		master_vol = float(cfg.get_value("audio", "master_volume", 0.8))
-		music_vol = float(cfg.get_value("audio", "music_volume", 0.8))
-		sfx_vol = float(cfg.get_value("audio", "sfx_volume", 0.8))
-		voice_vol = float(cfg.get_value("audio", "voice_volume", 0.8))
+		master_vol = float(cfg.get_value("audio", "master_volume", 0.5))
+		music_vol = float(cfg.get_value("audio", "music_volume", 0.5))
+		sfx_vol = float(cfg.get_value("audio", "sfx_volume", 0.5))
+		voice_vol = float(cfg.get_value("audio", "voice_volume", 0.5))
 		tilt_val = float(cfg.get_value("gameplay", "camera_tilt_scale", 1.0))
 
 	if master_slider:
