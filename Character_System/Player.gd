@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+const PauseMenu = preload("res://PauseMenu.gd")
+
 # --- Physical Constants ---
 @export var SPEED = 5.0
 @export var SPRINT_SPEED = 8.5
@@ -111,10 +113,12 @@ func _ready():
 	
 	move_sfx_player = AudioStreamPlayer.new()
 	move_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Hey watch it.ogg")
+	move_sfx_player.bus = &"Voice"
 	add_child(move_sfx_player)
 
 	panting_sfx_player = AudioStreamPlayer.new()
 	panting_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Ouch.ogg")
+	panting_sfx_player.bus = &"Voice"
 	add_child(panting_sfx_player)
 
 	# --- Sweat Particle FX Setup ---
@@ -233,12 +237,12 @@ func _input(event):
 		else:
 			_try_grab_nearest_cart()
 
-	# 4. Escape to unlock
-	if event.is_action_pressed("ui_cancel"):
-		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-		else:
-			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	# 4. Click to recapture mouse if unpaused
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if not get_tree().paused and Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
+			var hud = get_tree().root.find_child("ShoppingHUD", true, false)
+			if not (hud and hud.get("_game_ended") == true):
+				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 	# 5. Handle Double-Tap Sprint Detection (Obeying 25% sprint gate)
 	if event is InputEventKey and event.pressed and not event.is_echo():
@@ -559,7 +563,7 @@ func _physics_process(delta: float) -> void:
 		var current_roll_max: float = MAX_CAMERA_ROLL * escalation_factor
 		
 		camera.rotation_degrees.y = base_yaw + sin(sway_phase) * current_sway_max
-		active_roll_angle = cos(sway_phase) * current_roll_max
+		active_roll_angle = cos(sway_phase) * current_roll_max * PauseMenu.camera_tilt_scale
 		camera.rotation_degrees.z = active_roll_angle
 
 	# --- Camera-Aligned Sliding Drift & Load Inertia ---
@@ -584,8 +588,8 @@ func _physics_process(delta: float) -> void:
 		if raw_progress_drift > 0.66: # Final 20 seconds
 			last_20s_pull += pow((raw_progress_drift - 0.66) / 0.34, 1.2) * 0.45
 		
-		# Manageable acceleration injection
-		var tilt_accel: Vector3 = downhill_vector * (BASE_TILT_MAGNITUDE * last_20s_pull) * load_mult
+		# Manageable acceleration injection scaled by PauseMenu.camera_tilt_scale
+		var tilt_accel: Vector3 = downhill_vector * (BASE_TILT_MAGNITUDE * last_20s_pull) * load_mult * PauseMenu.camera_tilt_scale
 		drift_velocity += tilt_accel * delta
 		
 		# Viscous drag damping: eliminates static friction deadbands so drift is immediately felt,
@@ -809,6 +813,7 @@ func scatter_cart_items() -> void:
 	# Play scatter drop sound
 	var sfx = AudioStreamPlayer.new()
 	sfx.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Lose2.ogg")
+	sfx.bus = &"SFX"
 	sfx.pitch_scale = 1.6
 	get_tree().root.add_child(sfx)
 	sfx.play()

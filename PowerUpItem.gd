@@ -71,6 +71,7 @@ func _do_collect(player: CharacterBody3D) -> void:
 
 	# Play chime sound
 	var sfx = AudioStreamPlayer.new()
+	sfx.bus = &"SFX"
 	sfx.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Chaching.ogg")
 	sfx.pitch_scale = 1.2 if powerup_type == "coffee" else 1.4
 	get_tree().root.add_child(sfx)

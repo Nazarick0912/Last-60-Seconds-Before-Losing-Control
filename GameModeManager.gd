@@ -33,26 +33,31 @@ func _ready() -> void:
 	if bgm_stream:
 		bgm_stream.loop = true
 	bgm_player.stream = bgm_stream
-	bgm_player.volume_db = -10.0
+	bgm_player.bus = &"Music"
+	bgm_player.volume_db = -2.5
 	bgm_player.autoplay = true
 	add_child(bgm_player)
 	
 	pickup_player = AudioStreamPlayer.new()
 	pickup_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Chaching.ogg")
+	pickup_player.bus = &"SFX"
 	add_child(pickup_player)
 	
 	lose_player = AudioStreamPlayer.new()
 	lose_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Lose2.ogg")
+	lose_player.bus = &"SFX"
 	add_child(lose_player)
 	
 	start_sfx_player = AudioStreamPlayer.new()
 	start_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/DingDong.ogg")
+	start_sfx_player.bus = &"SFX"
 	add_child(start_sfx_player)
 	_reset_list()
 	
 	win_sfx_player = AudioStreamPlayer.new()
 	win_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Yeah.ogg")
 	win_sfx_player.process_mode = Node.PROCESS_MODE_ALWAYS 
+	win_sfx_player.bus = &"SFX"
 	add_child(win_sfx_player)
 
 func _reset_list() -> void:

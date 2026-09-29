@@ -81,8 +81,9 @@
 [ext_resource type="Script" uid="uid://c018dayf71uyy" path="res://ShoppingHUD.gd" id="82_hud"]
 [ext_resource type="Shader" uid="uid://b30vm24a44or8" path="res://wavy_floor.gdshader" id="83_wavy"]
 [ext_resource type="Script" uid="uid://o5sdjtwyr0xv" path="res://SunCycle.gd" id="84_sun"]
-[ext_resource type="PackedScene" path="res://CheckoutBeacon.tscn" id="CheckoutBeacon_scene"]
 [ext_resource type="Script" uid="uid://cetwdb67kcx5t" path="res://InstructionSign.gd" id="InstructionSign_res"]
+[ext_resource type="PackedScene" path="res://CheckoutBeacon.tscn" id="CheckoutBeacon_scene"]
+[ext_resource type="PackedScene" path="res://PauseMenu.tscn" id="PauseMenu_scene"]
 
 [sub_resource type="Environment" id="Environment_gngh3"]
 background_mode = 1
@@ -1566,6 +1567,8 @@ transform = Transform3D(-0.008866123, 0, 0.37183228, 0, 1, 0, -2.689173, 0, -0.0
 
 [node name="ShoppingHUD" type="CanvasLayer" parent="." unique_id=-2094967295]
 script = ExtResource("82_hud")
+
+[node name="PauseMenu" parent="." instance=ExtResource("PauseMenu_scene")]
 
 [node name="GameNPCs" type="Node3D" parent="." unique_id=-2094967294]
 

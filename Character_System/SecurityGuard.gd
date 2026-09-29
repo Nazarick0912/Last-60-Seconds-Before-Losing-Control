@@ -138,6 +138,7 @@ func _catch_player() -> void:
 		# 3. Play angry grunt / catch SFX
 		var sfx = AudioStreamPlayer.new()
 		sfx.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Hey watch it.ogg")
+		sfx.bus = &"Voice"
 		sfx.pitch_scale = 0.85 # Deeper, furious voice
 		get_tree().root.add_child(sfx)
 		sfx.play()
@@ -177,6 +178,7 @@ func trigger_aggro(_source_pos: Vector3 = Vector3.ZERO) -> void:
 	# Play alert whistle / notice SFX
 	var sfx = AudioStreamPlayer.new()
 	sfx.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/DingDong.ogg")
+	sfx.bus = &"SFX"
 	sfx.pitch_scale = 1.3
 	get_tree().root.add_child(sfx)
 	sfx.play()

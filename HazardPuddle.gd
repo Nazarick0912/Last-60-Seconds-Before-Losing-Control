@@ -46,6 +46,7 @@ func _on_body_entered(body: Node3D) -> void:
 		# Play puddle splash SFX
 		var sfx = AudioStreamPlayer.new()
 		sfx.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Ouch.ogg")
+		sfx.bus = &"SFX"
 		sfx.pitch_scale = randf_range(1.3, 1.6)
 		add_child(sfx)
 		sfx.play()
