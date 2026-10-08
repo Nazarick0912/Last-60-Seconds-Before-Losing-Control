@@ -9,6 +9,8 @@ extends Node
 signal list_updated()
 signal game_won()
 signal game_lost()
+signal checkout_ready()
+signal warning_triggered(msg: String)
 
 # Shopping list definition: key → { label, required, collected }
 var shopping_list: Dictionary = {}
@@ -27,36 +29,45 @@ var win_sfx_player: AudioStreamPlayer
 func _ready() -> void:
 	# --- AUDIO SETUP ---
 	bgm_player = AudioStreamPlayer.new()
-	var bgm_stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Zambolino - Reflection (freetouse.com).ogg") as AudioStreamOggVorbis
+	var bgm_stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/In the Hall of the Mountain King.ogg") as AudioStreamOggVorbis
 	if bgm_stream:
 		bgm_stream.loop = true
+		bgm_stream.loop_offset = 35.0
 	bgm_player.stream = bgm_stream
-	bgm_player.volume_db = -12.0
-	bgm_player.autoplay = true
+	bgm_player.bus = &"Music"
+	bgm_player.volume_db = 6.0
 	add_child(bgm_player)
 	
 	pickup_player = AudioStreamPlayer.new()
 	pickup_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Chaching.ogg")
+	pickup_player.bus = &"SFX"
 	add_child(pickup_player)
 	
 	lose_player = AudioStreamPlayer.new()
 	lose_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Lose2.ogg")
+	lose_player.bus = &"SFX"
 	add_child(lose_player)
 	
 	start_sfx_player = AudioStreamPlayer.new()
 	start_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/DingDong.ogg")
+	start_sfx_player.bus = &"SFX"
 	add_child(start_sfx_player)
 	_reset_list()
 	
 	win_sfx_player = AudioStreamPlayer.new()
 	win_sfx_player.stream = load("res://Assets 1/KayKit_Prototype_Bits_1.1_FREE/Music/Yeah.ogg")
 	win_sfx_player.process_mode = Node.PROCESS_MODE_ALWAYS 
+	win_sfx_player.bus = &"SFX"
 	add_child(win_sfx_player)
 
+func restart_music() -> void:
+	if bgm_player:
+		bgm_player.stop()
+		bgm_player.play(35.0)
+
 func _reset_list() -> void:
-	# Resume BGM if it was stopped (e.g. after a loss)
-	if bgm_player and not bgm_player.playing:
-		bgm_player.play()
+	# Always restart music from 35s on restart
+	restart_music()
 	shopping_list.clear()
 	
 	var ALL_AVAILABLE = [
@@ -130,9 +141,13 @@ func _check_win() -> void:
 			return
 	
 	# All items collected, but we haven't checked out yet!
-	list_complete = true
-	# We omit the game_won signal here and wait for checkout
-	emit_signal("list_updated") 
+	if not list_complete:
+		list_complete = true
+		emit_signal("checkout_ready")
+		emit_signal("list_updated") 
+
+func trigger_win() -> void:
+	do_checkout()
 
 func do_checkout() -> void:
 	if list_complete and not _game_ended:

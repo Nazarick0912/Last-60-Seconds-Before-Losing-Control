@@ -20,8 +20,19 @@ const BOUNDS_MAX : Vector3 = Vector3( 4.0,  -2.0,  -4.0)
 var _move_dir  : Vector3 = Vector3.ZERO
 var _dir_timer : float   = 0.0
 
+@export var is_vip: bool = false
+var _vip_label: Label3D = null
+
 func _ready() -> void:
 	randomize()
+
+	# 30% chance to be a VIP customer if not explicitly configured
+	if not is_vip and randf() < 0.30:
+		is_vip = true
+
+	if is_vip:
+		add_to_group("vip_customer")
+		_create_vip_visuals()
 
 	# Pick and show a random character model
 	var all_chars: Array = mesh_container.get_children()
@@ -45,8 +56,43 @@ func _ready() -> void:
 	axis_lock_angular_x = true
 	axis_lock_angular_z = true
 
+	# Enable physics contact monitoring to detect player and shopping cart crashes
+	contact_monitor = true
+	max_contacts_reported = 4
+	body_entered.connect(_on_customer_body_entered)
+
 	add_to_group("npc")
 	_pick_new_direction()
+
+func _on_customer_body_entered(body: Node) -> void:
+	var player = null
+	if body.is_in_group("player"):
+		player = body
+	elif body.is_in_group("shopping_cart") or body.name.to_lower().find("cart") != -1:
+		player = get_tree().get_first_node_in_group("player")
+	elif body.get("player_owner") != null:
+		player = body.player_owner
+
+	if player and is_instance_valid(player) and player.has_method("handle_customer_crash"):
+		player.handle_customer_crash(self)
+
+func _create_vip_visuals() -> void:
+	_vip_label = Label3D.new()
+	_vip_label.text = "👑 VIP CUSTOMER\n(DO NOT HIT!)"
+	_vip_label.font_size = 32
+	_vip_label.modulate = Color(1.0, 0.85, 0.1, 1.0)
+	_vip_label.outline_modulate = Color(0.0, 0.0, 0.0, 1.0)
+	_vip_label.outline_size = 10
+	_vip_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_vip_label.position = Vector3(0, 2.8, 0)
+	add_child(_vip_label)
+
+	var vip_light = OmniLight3D.new()
+	vip_light.light_color = Color(1.0, 0.85, 0.2, 1.0)
+	vip_light.light_energy = 1.4
+	vip_light.omni_range = 3.5
+	vip_light.position = Vector3(0, 2.4, 0)
+	add_child(vip_light)
 
 func _physics_process(delta: float) -> void:
 	if not is_inside_tree(): return

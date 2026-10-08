@@ -13,6 +13,46 @@ func _ready() -> void:
 
 	await get_tree().process_frame
 	_spawn_mapped_items()
+	_spawn_hazards_and_extras()
+
+func _spawn_hazards_and_extras() -> void:
+	var parent_node = get_parent()
+	if not parent_node: return
+
+	# 1. Spawn Security Guard / Angry Manager
+	var guard_scene = load("res://Character_System/SecurityGuard.tscn")
+	if guard_scene:
+		var guard = guard_scene.instantiate()
+		guard.position = Vector3(-18.0, 0.0, -25.0)
+		parent_node.call_deferred("add_child", guard)
+
+	# 2. Spawn Hazard Puddles (Spilled Milk / Wet Floor)
+	var puddle_scene = load("res://HazardPuddle.tscn")
+	if puddle_scene:
+		var puddle_positions = [
+			Vector3(-10.0, 0.02, -18.0),
+			Vector3(-24.0, 0.02, -32.0),
+			Vector3(-8.0, 0.02, -38.0)
+		]
+		for pos in puddle_positions:
+			var puddle = puddle_scene.instantiate()
+			puddle.position = pos
+			parent_node.call_deferred("add_child", puddle)
+
+	# 3. Spawn Arcade Power-ups (Coffee & Clock)
+	var powerup_scene = load("res://PowerUpItem.tscn")
+	if powerup_scene:
+		var powerups = [
+			{ "type": "coffee", "pos": Vector3(-14.0, 0.2, -12.0) },
+			{ "type": "coffee", "pos": Vector3(-28.0, 0.2, -26.0) },
+			{ "type": "clock",  "pos": Vector3(-18.0, 0.2, -40.0) },
+			{ "type": "clock",  "pos": Vector3(-4.0,  0.2, -28.0) }
+		]
+		for p in powerups:
+			var pu = powerup_scene.instantiate()
+			pu.powerup_type = p["type"]
+			pu.position = p["pos"]
+			parent_node.call_deferred("add_child", pu)
 
 
 func _spawn_mapped_items() -> void:
